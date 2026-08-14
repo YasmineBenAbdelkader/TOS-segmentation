@@ -1,0 +1,267 @@
+\documentclass[11pt,a4paper]{report}
+
+\usepackage[french]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+\newcommand{\todonote}[1]{\textcolor{red}{\textbf{[À COMPLÉTER : #1]}}}
+
+\title{Baseline de segmentation FLASH vs RSSFP \\
+\large Méthodologie littérature-first et comparaison au niveau modèle \\
+\large Document de suivi de thèse -- complément à \texttt{main.tex}}
+\author{Yasmine Ben Abdelkader}
+\date{Document vivant --- dernière mise à jour : \today}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\chapter{Champ de ce document}
+
+Ce document remplace, pour la question de la comparaison FLASH vs RSSFP, l'approche
+suivie dans \texttt{report/sections/04\_phase1\_baseline.tex} (conservé tel quel dans
+le rapport principal comme trace de l'exploration initiale, non répété ici). Deux
+différences de fond motivent un document séparé plutôt qu'une révision du chapitre
+existant :
+
+\begin{itemize}[nosep]
+    \item \textbf{Méthodologie décidée a priori, à partir de la littérature} --- pas
+        par comparaison empirique de plusieurs configurations sur 2 folds (l'ancienne
+        approche a montré ses limites : effets qui changent de signe entre folds sur
+        un dataset de 13 patients, voir \S\ref{sec:limite-ancienne-approche}).
+    \item \textbf{Deux modèles spécialisés par séquence} (FLASH, RSSFP) dès le
+        départ, pas un modèle pooled suivi d'une comparaison a posteriori --- répond
+        directement à la question clinique du projet (dynamique vs statique,
+        FLASH vs RSSFP) sans détour.
+\end{itemize}
+
+\section{Ce qui est repris de l'exploration préliminaire}
+\label{sec:limite-ancienne-approche}
+
+Deux résultats de l'exploration initiale (chapitre Exploration du rapport principal)
+restent valides et informent ce document, indépendamment de la méthodologie
+d'entraînement retenue :
+
+\begin{description}[style=nextline]
+    \item[Bug d'alignement H/W] Le labelmap (\texttt{.seg.nrrd}) et l'image DICOM
+        étaient transposés sur leurs deux premiers axes -- indétectable par une
+        simple comparaison de \texttt{shape} (les deux axes valent 320) ou par le
+        raisonnement géométrique a priori (les cosinus directeurs concordaient malgré
+        tout). Confirmé empiriquement par un score de gradient de bord (les contours
+        du masque doivent tomber sur de vrais bords d'intensité) : l'orientation
+        transposée obtient un score $\sim$1,6--2$\times$ supérieur. Ce bug avait
+        inversé la conclusion FLASH vs RSSFP sur le contraste (CNR) -- corrigé, FLASH
+        montre un avantage CNR robuste au niveau population sur ASC/VSC
+        (+1,84 et +2,31 vs écart-type inter-patient de 0,53 et 0,43).
+    \item[Fragmentation structurelle de K1] L'analyse en composantes connexes de
+        l'exploration a identifié K1 et MSC comme les structures les plus souvent
+        fragmentées en plusieurs composantes dans la vérité terrain (K1 : 7/56
+        séries). Cette observation, indépendante de tout choix d'entraînement, sert
+        de grille de lecture pour les résultats de ce document : si K1 reste
+        systématiquement la structure la plus faible ici aussi, ça confirme une
+        difficulté structurelle plutôt qu'un artefact de méthodologie.
+\end{description}
+
+Les résultats d'entraînement de l'exploration préliminaire (grille aug$\times$crop,
+folds 0/1 du modèle pooled) ne sont \textbf{pas} repris ici -- ils restent disponibles
+dans \texttt{04\_phase1\_baseline.tex} pour référence historique, mais ce document
+part d'une méthodologie déjà décidée, pas d'une comparaison empirique menant à cette
+décision.
+
+\chapter{Méthodologie}
+\label{chap:methodologie}
+
+Principe directeur : chaque choix est ancré dans la littérature \emph{avant}
+l'entraînement, pas ajusté après coup par comparaison empirique sur un dataset trop
+petit (13 patients) pour trancher des écarts fins de manière fiable.
+
+\section{Fonction de perte}
+
+\textbf{Dice + Cross-Entropy pondérée} (inchangé par rapport à l'exploration
+préliminaire) --- Ma et al. (2021, \emph{Medical Image Analysis}, ``Loss odyssey'')
+montrent que cette combinaison est la plus robuste sur 6 datasets/10+ centres,
+particulièrement sur les tâches à déséquilibre de classe modéré, exactement le cas ici
+(ratio 4,4$\times$ entre PB et ASC, EDA \S distribution de taille). Alternatives
+considérées et écartées : Generalized Dice Loss (Sudre et al. 2017) et Unified Focal
+Loss (Yeung et al. 2021), conçues pour un déséquilibre \emph{extrême} -- non
+justifiées ici, et la pondération CE par fréquence inverse déjà en place
+(\texttt{compute\_class\_weights}, mesurée empiriquement sur le train set) répond au
+même besoin sans hyperparamètre supplémentaire à régler.
+
+\section{Métriques}
+
+\textbf{Dice + Hausdorff-95 + Normalized Surface Distance (NSD)} --- ajout du NSD par
+rapport à l'exploration préliminaire. Justifié par Maier-Hein et al. (2024,
+\emph{Nature Methods}, ``Metrics reloaded''), la référence de consensus international
+sur le choix des métriques de segmentation : combiner une métrique de recouvrement
+(Dice) avec des métriques de frontière (HD95 \emph{et} NSD) est recommandé
+explicitement, ces métriques étant insuffisamment corrélées pour se substituer l'une
+à l'autre. NSD calculé avec une tolérance $\tau=2$px (spacing rééchantillonné à 1mm
+en Phase 0, donc $\approx$2mm) -- voir \texttt{src/metrics.py},
+\texttt{nsd\_per\_class}. Toujours rapportées par structure, jamais macro-moyennées
+(convention BraTS, déjà justifiée dans l'exploration préliminaire).
+
+\section{Augmentation de données}
+
+\textbf{Toujours activée, dès le premier entraînement -- pas testée en option.}
+nnU-Net (Isensee et al. 2021, \emph{Nature Methods}), la référence du domaine,
+applique l'augmentation par défaut sur \emph{toutes} les tâches, sans jamais la
+traiter comme un choix à valider empiriquement au cas par cas. Paramètres repris de
+l'exploration préliminaire (\texttt{src/augmentation.py}, \texttt{JointAugmentation})
+: rotation $\pm12°$, scaling 0,9--1,1$\times$, déformation élastique légère
+($\alpha=15$, $\sigma=4$, $p=0,3$), gamma/luminosité ($p=0,5$ chacun) --- délibérément
+plus conservateurs que les défauts nnU-Net ($\pm30°$, 0,7--1,4$\times$), écart
+\textbf{assumé et justifié} : la Phase 0 a déjà rééchantillonné toutes les séries à
+un spacing physique commun, un scaling aussi agressif que nnU-Net réintroduirait la
+variance d'échelle que ce rééchantillonnage visait à supprimer. Flip horizontal
+toujours exclu (question D/G miroir anatomique non tranchée avec l'encadrant) ---
+second écart assumé au défaut nnU-Net.
+
+\section{Recadrage ROI (crop)}
+
+\textbf{Non utilisé dans ce baseline.} Un crop fixe non appris (tel qu'exploré en
+Phase 1 exploratoire) n'est pas une pratique standard -- la référence pour les petites
+structures dans une grande image est le cascade coarse-to-fine à deux étages
+(localisateur puis modèle fin, ex. Roth et al., Zhu et al. pour le pancréas, marge de
+15px après localisation dans certaines implémentations), pas un crop fixe par
+statistiques de population. nnU-Net lui-même ne fait pas de crop fixe par défaut.
+
+\textbf{Limite assumée, à documenter honnêtement} : nnU-Net compense le déséquilibre
+fond/structure non pas en ignorant le problème, mais par un échantillonnage de
+patchs orienté premier-plan pendant l'entraînement (sur-échantillonnage des régions
+contenant la structure cible). Ce pipeline n'a pas d'équivalent -- image entière,
+échantillonnage uniforme des frames. Ne pas présenter l'absence de crop comme un
+alignement complet sur nnU-Net ; c'est un choix de simplicité pour ce baseline,
+documenté comme piste d'amélioration possible (cascade complet ou échantillonnage
+pondéré), pas comme équivalent fonctionnel.
+
+\section{Ordre d'implémentation retenu}
+
+\begin{enumerate}[nosep]
+    \item Métriques (ajout du NSD) -- nécessaire pour évaluer correctement tout run.
+    \item Perte -- inchangée.
+    \item Augmentation -- activée par défaut dès le premier entraînement de chaque
+        modèle, jamais ajoutée après coup.
+    \item Crop -- non implémenté dans ce baseline (voir limite ci-dessus).
+\end{enumerate}
+
+\chapter{Protocole expérimental}
+
+\section{Deux modèles spécialisés, pas de modèle pooled}
+
+Un modèle FLASH-only (séries \texttt{FLASH D/G} uniquement) et un modèle RSSFP-only
+(séries \texttt{RSSFP D/G} uniquement), même architecture et hyperparamètres
+(U-Net 2D, 4 niveaux, base\_ch=32, $\approx$7,7M paramètres --- inchangé de
+l'exploration préliminaire). Pas de 3e modèle pooled : la question de recherche est
+directement comparative (FLASH vs RSSFP), un modèle pooled n'y répond pas et
+triplerait le travail des phases XAI suivantes sans bénéfice pour cette question.
+
+\textbf{Compromis assumé} : chaque modèle spécialisé n'a accès qu'à la moitié des
+données du modèle pooled (une seule paire D/G au lieu de deux) --- compromis
+symétrique entre les deux modèles, donc la comparaison reste valide même si les Dice
+absolus sont probablement inférieurs à un modèle pooled hypothétique.
+
+\section{Validation croisée : k=3, appariement au niveau patient}
+\label{sec:protocole-cv}
+
+$k=3$ folds au niveau patient (\texttt{src/splitting.py}), réduit de $k=5$ dans
+l'exploration préliminaire --- compromis coût de calcul / fiabilité pour 2 modèles au
+lieu d'1.
+
+\textbf{Point méthodologique important} : la comparaison finale FLASH vs RSSFP ne
+repose \textbf{pas} sur une moyenne des 3 Dice de fold (ce qui donnerait seulement 3
+paires, insuffisant pour un test statistique -- avec $n=3$, un test de Wilcoxon
+signé-apparié ne peut atteindre $p<0{,}05$ quelle que soit l'ampleur de l'effet réel,
+$p_{min} \approx 0{,}25$). Chaque patient passant exactement une fois en validation
+par modèle sur l'ensemble des 3 folds, la comparaison est faite \textbf{au niveau
+patient} ($n\approx13$ paires) : score du patient X sous le modèle FLASH vs score du
+même patient X sous le modèle RSSFP. C'est la pratique établie en littérature de
+segmentation médicale pour comparer deux méthodes (test de Wilcoxon signé-apparié sur
+scores par cas, avec correction de Holm-Bonferroni pour les comparaisons multiples --
+6 structures testées séparément). Implémenté dans
+\texttt{scripts/train\_baseline.py}, \texttt{evaluate\_per\_patient} ---
+chaque run ajoute ses lignes patient$\times$structure à
+\texttt{report/figures/baseline\_per\_patient\_metrics.csv}, dédupliquées par
+(patient, séquence, structure) pour éviter les doublons en cas de relance.
+
+\section{Commande}
+
+\begin{center}
+\texttt{python scripts/train\_baseline.py --sequence \{FLASH,RSSFP\} --fold \{0,1,2\}
+--epochs 30}
+\end{center}
+
+6 runs au total (2 séquences $\times$ 3 folds).
+
+\chapter{Résultats}
+\label{chap:resultats}
+
+\todonote{5 runs restants (FLASH fold 1--2, RSSFP fold 0--2) avant de pouvoir faire
+la comparaison statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette
+section sera complétée à chaque run.}
+
+\section{FLASH, fold 0}
+
+30 epochs, 9 patients train (360 frames) / 4 patients val (140 frames ---
+\texttt{2017-110 01-0229-V1MR}, \texttt{\_0223}, \texttt{\_0226}, \texttt{\_0227}).
+Meilleur checkpoint à l'epoch 26 (Dice moyen structures, moyenné par patient puis par
+structure = 0,7046).
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,8199 & 0,7659 & 0,8919 & 4,50 & 0,8709 \\
+MSC  & 0,7231 & 0,6399 & 0,8511 & 4,60 & 0,8204 \\
+VSC  & 0,8043 & 0,7741 & 0,8477 & 4,65 & 0,8863 \\
+ASC  & 0,6728 & 0,6229 & 0,7560 & 6,65 & 0,7956 \\
+K1   & 0,4812 & 0,3711 & 0,7377 & 13,76 & 0,6453 \\
+PB   & 0,6944 & 0,6747 & 0,7619 & 8,93 & 0,6935 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold0_dice_curve.png}
+\end{center}
+
+\textbf{K1 confirmé comme structure la plus faible} (Dice 0,48, HD95 13,76px, NSD
+0,65 -- le NSD le plus bas des 6 structures) --- cohérent avec la fragmentation
+structurelle documentée en exploration préliminaire (\S\ref{sec:limite-ancienne-approche})
+et avec les résultats du modèle pooled (exploration préliminaire, non repris ici en
+détail) : troisième configuration d'entraînement indépendante où K1 ressort en
+dernier, ce qui renforce l'hypothèse d'une difficulté structurelle plutôt que d'un
+artefact de méthodologie ou de split.
+
+\textbf{ASC plus bas que dans le modèle pooled} (0,67 ici contre $\sim$0,75--0,80
+dans l'exploration préliminaire) --- cohérent avec le compromis assumé
+(\S\ref{chap:resultats}, moitié des données pour un modèle spécialisé) : à confirmer
+si ce n'est pas simplement un effet de ce fold particulier, sur les folds 1--2.
+
+\textbf{Anomalie de timing, présente mais atténuée} : epochs 20, 22, 24 ont pris
+250--455s contre $\approx$80--130s pour les autres -- nettement moins sévère que les
+runs de 12--13h observés sur ``sans aug + crop'' dans l'exploration préliminaire
+(qui ont motivé la décision de retirer le crop de ce baseline), mais pas totalement
+absente. Le crop n'était donc pas l'unique cause -- à surveiller sur les 5 runs
+restants avant de conclure quoi que ce soit sur l'origine exacte.
+
+\chapter{Analyse statistique}
+
+\todonote{À faire une fois les 6 runs terminés : test de Wilcoxon signé-apparié par
+structure (FLASH vs RSSFP, $n\approx13$ patients), correction de Holm-Bonferroni pour
+les 6 tests (6 structures), et rapport des tailles d'effet (pas seulement les
+p-values) -- voir \S\ref{sec:protocole-cv} pour la justification du choix
+méthodologique de ce test.}
+
+\end{document}
