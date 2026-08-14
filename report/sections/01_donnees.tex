@@ -1,0 +1,54 @@
+\chapter{Données}
+
+\section{Organisation générale}
+
+Les données sont stockées dans \texttt{EPAPLEX/DATA/}. Le jeu de données comprend
+\textbf{14 patients} (dossiers nommés par exemple \texttt{2017-110\_01-0229-V1MR}), chacun disposant
+de \textbf{4 séries} :
+
+\begin{itemize}[nosep]
+    \item \texttt{FLASH D} (droite)
+    \item \texttt{FLASH G} (gauche)
+    \item \texttt{RSSFP D} (droite)
+    \item \texttt{RSSFP G} (gauche)
+\end{itemize}
+
+Soit 56 séries au total. Chaque série contient 20 images DICOM annotées
+(\texttt{IM\_001.dcm}, \ldots, \texttt{IM\_020.dcm}) extraites de l'acquisition dynamique complète
+(environ 300 images), ainsi qu'un volume prétraité \texttt{volume\_n4.npy} (correction du champ de
+biais N4) --- lorsqu'il est disponible (voir \S\ref{sec:n4-manquant}).
+
+\section{Vérité terrain}
+
+Le fichier \texttt{Segmentation\_PB.seg.nrrd} est le labelmap multi-label de référence contenant les
+6 structures cibles dans un seul volume :
+
+\begin{center}
+\begin{tabular}{cl}
+\toprule
+Label & Structure \\
+\midrule
+1 & CLAV --- clavicule \\
+2 & MSC --- muscle scalène \\
+3 & VSC --- veine sous-clavière \\
+4 & ASC --- artère sous-clavière \\
+5 & K1 --- première côte \\
+6 & PB --- plexus brachial \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\todonote{Confirmer cette correspondance label $\to$ structure avec le directeur de thèse.}
+
+D'autres fichiers \texttt{Segmentation\_*.seg.nrrd} (\texttt{sPB}, \texttt{Just-PB},
+\texttt{CLAV\_K1}, \texttt{ccs}, \texttt{costoclavicular\_mask}) sont des sous-ensembles ou versions
+dérivées, pas des structures supplémentaires.
+
+\section{Environnement logiciel}
+
+Environnement Python dans \texttt{EPAPLEX/.venv}, dépendances listées dans
+\texttt{EPAPLEX/requirements.txt} : \texttt{pydicom}, \texttt{pynrrd}, \texttt{numpy}, \texttt{pandas},
+\texttt{matplotlib}, \texttt{jupyter}, \texttt{ipykernel}, \texttt{scipy} (ajouté pour
+\texttt{ndimage.label}, voir composantes connexes \S\ref{sec:composantes-connexes}). Noyau Jupyter
+enregistré sous le nom \texttt{epaplex}. \texttt{SimpleITK} n'est pas encore installé --- nécessaire
+pour la correction N4 en Phase 0.

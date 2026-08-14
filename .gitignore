@@ -1,0 +1,25 @@
+# Data (patient MRI data — never commit)
+DATA/
+DATA_processed/
+_archive_volume_n4/
+
+# Model checkpoints / large binaries
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.npz
+*.npy
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Jupyter large outputs (optional, keep if you want notebooks versioned as-is)

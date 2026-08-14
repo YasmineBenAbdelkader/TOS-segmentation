@@ -1,0 +1,281 @@
+\chapter{Exploration des données (EDA)}
+\label{chap:exploration}
+
+Cette exploration a été menée dans le notebook \texttt{notebooks/analyse\_exploratoire\_TOS.ipynb},
+exécuté de bout en bout sans erreur (dernière relecture complète : 10/08/2026, ré-exécutée depuis zéro
+plutôt que de faire confiance aux résultats d'une exécution antérieure). Elle constitue le socle
+technique de la Phase 0.
+
+\section{Problèmes de qualité des données identifiés}
+
+\begin{itemize}
+    \item \textbf{Espacement des pixels incohérent} : le patient \texttt{2017-110\_01-0222-V1MR}
+        (les 4 séries) et \texttt{2017-110\_01-0223-V1MR} (série FLASH D uniquement) ont un
+        \texttt{PixelSpacing} de 0,7812\,mm contre 1,0\,mm pour le reste --- nécessite un
+        rééchantillonnage avant entraînement.
+    \item \textbf{Erreur de nommage} : \texttt{2017-110\_01-0222-V1MR/RSSFP D} possède un fichier
+        \texttt{Segmentation\_CLAV\_K1.seg.seg.nrrd} (double \texttt{.seg}) et il manque entièrement
+        \texttt{Segmentation\_costoclavicular\_mask.nrrd}.
+    \item \textbf{\texttt{SliceThickness} non fiable} : varie de façon incohérente entre images d'une
+        même série dynamique, probablement altéré à l'export --- ne pas utiliser.
+    \item \textbf{Incohérence de casse et fautes de frappe} dans les noms de segments
+        (\texttt{K1}/\texttt{k1}, \texttt{VSC}/\texttt{vsc}, \texttt{MCS} au lieu de \texttt{MSC}) ---
+        nécessite une normalisation (majuscules + table d'alias) avant toute agrégation de
+        statistiques.
+    \item \textbf{Deux anomalies structurelles réelles} (non corrigibles par renommage) :
+        \texttt{2017-110\_01-0223-V1MR RSSFP D} présente un layout 4D à 2 couches (K1 seul en couche 1,
+        les 5 autres structures en couche 0 avec PB=5 au lieu de 6 dans ce fichier) ;
+        \texttt{2017-110\_01-0222-V1MR FLASH D} stocke PB à la valeur de label 7 au lieu de 6. Le code
+        doit toujours résoudre les structures par leur nom dans l'en-tête, jamais par une valeur de
+        label codée en dur.
+\end{itemize}
+
+\section{Bug critique n°1 : ordre des images inversé dans le labelmap}
+\label{sec:bug-ordre-frames}
+
+L'axe des images (\emph{frames}) dans \texttt{Segmentation\_*.seg.nrrd} est stocké dans l'ordre
+\textbf{inverse} de l'ordre \texttt{InstanceNumber}/nom de fichier DICOM : pour une série de $N$
+images, l'indice de tableau $k$ correspondant à l'image $n$ est $k = N - n$, et non $n - 1$ comme on
+pourrait le supposer naïvement.
+
+Confirmé en comparant \texttt{space origin} / \texttt{space directions} du nrrd avec
+\texttt{ImagePositionPatient} de chaque image DICOM. Toute association image~$\leftrightarrow$~label
+doit recalculer ce mapping par série (fonction \texttt{build\_frame\_to\_k}) plutôt que de supposer
+$k = n-1$.
+
+\textbf{Cinq séries n'ont aucune information spatiale exploitable} pour résoudre cet ordre :
+\texttt{2017-110\_01-0222-V1MR} (les 4 séries) et \texttt{2017-110\_01-0223-V1MR/FLASH D} ---
+\texttt{ImagePositionPatient} et \texttt{SliceLocation} y sont identiques sur les 20 images, contre
+des valeurs variables (et donc exploitables) dans les 51 autres séries. \texttt{build\_frame\_to\_k}
+signale correctement ces cas comme non résolus. \textbf{Ces 5 séries doivent être exclues de tout
+entraînement automatisé} jusqu'à vérification manuelle sous 3D Slicer.
+
+\textbf{Convergence notable (relecture du 10/08/2026)} : ces 5 séries à géométrie non résolue sont
+\emph{exactement} les 5 séries à \texttt{PixelSpacing} anormal (\S précédente) --- pas une coïncidence
+a priori, probablement un même lot d'acquisition ou d'export distinct des 51 autres séries. Ces 5
+séries doivent être traitées comme un seul groupe anormal à part entière, pas comme deux problèmes
+indépendants.
+
+\section{Bug critique n°2 : transposition H/W entre nrrd et DICOM}
+\label{sec:bug-transposition}
+
+\textbf{Découvert le 09/08/2026, par inspection visuelle de l'utilisatrice.} Au-delà du problème
+d'ordre des images (\S précédente), les deux premiers axes (hauteur/largeur) du labelmap nrrd étaient
+\textbf{transposés} par rapport au \texttt{pixel\_array} DICOM.
+
+\subsection{Pourquoi ce bug n'a pas été détecté plus tôt}
+
+\begin{itemize}
+    \item La vérification géométrique de l'axe des images (\S précédente) ne portait que sur cet
+        axe-là, pas sur les axes H/W.
+    \item Une simple comparaison de \emph{shape} ne peut jamais détecter ce bug : les deux axes H et W
+        valent 320 dans ce jeu de données, donc une transposition ne change pas la forme du tableau.
+        C'est un angle mort structurel de toute vérification d'alignement basée uniquement sur la
+        forme --- y compris dans le notebook \texttt{exploration.ipynb} (cellule 48), qui ne compare
+        que des \emph{shapes}.
+    \item Le raisonnement géométrique initial (correspondance des cosinus directeurs
+        \texttt{ImageOrientationPatient} vs \texttt{space directions} du nrrd) suggérait à tort
+        qu'aucune transposition n'était nécessaire.
+\end{itemize}
+
+\subsection{Méthode de validation retenue}
+
+Un premier contrôle visuel zoomé avait semblé ``plausible'' (structures osseuses dans une zone
+anatomiquement cohérente), ce qui s'est révélé insuffisant. La correction a finalement été confirmée
+de façon \textbf{quantitative} : un score d'alignement contour/gradient (magnitude du gradient de
+Sobel de l'image, moyennée le long du contour du masque) a été calculé pour plusieurs orientations
+candidates (identité, transposée, symétries). L'orientation correcte obtient un score systématiquement
+plus élevé que l'orientation erronée (p.\,ex.\ 327,9 contre 171,4 sur le premier lot de séries testé).
+
+\textbf{Re-vérification indépendante (10/08/2026)} : le même test a été rejoué sur 5 séries
+supplémentaires, couvrant 2 patients non testés auparavant et un mélange FLASH/RSSFP. L'orientation
+transposée reste systématiquement gagnante, avec un écart de score de 1,5 à 2,4$\times$ selon la série
+--- la correction ne dépend donc pas d'un choix ponctuel de séries de test.
+
+\textbf{Correction appliquée} : ajout de \texttt{.transpose(1, 0, 2)} en fin de la fonction
+\texttt{load\_canonical\_labelmap} (désormais dans \texttt{src/data\_loading.py}).
+
+\subsection{Leçon méthodologique}
+
+Ni le raisonnement géométrique à partir des en-têtes DICOM/nrrd, ni un contrôle visuel unique, ne sont
+suffisants pour valider un alignement image/masque sur ce projet. Toute future vérification
+d'alignement doit s'appuyer sur un test quantitatif, indépendant de l'orientation, et prendre au
+sérieux tout retour visuel contredisant une conclusion géométrique.
+
+\section{Vérification de la résolution du masque}
+\label{sec:resolution-masque}
+
+Contrôle indépendant du bug de transposition ci-dessus : le \texttt{.seg.nrrd} a-t-il la même
+résolution que son image DICOM source ? Deux critères vérifiés sur les 56 séries : les dimensions
+H$\times$W du tableau nrrd contre \texttt{Rows}/\texttt{Columns} DICOM, et l'espacement physique
+(norme des vecteurs \texttt{space directions} du nrrd) contre \texttt{PixelSpacing} DICOM.
+
+\textbf{Résultat : 56/56 séries concordantes sur les deux critères}, y compris le fichier 4D
+multi-couches (\texttt{2017-110\_01-0223-V1MR/RSSFP D}) une fois un piège de parsing corrigé --- dans
+un nrrd 4D, l'axe non spatial (\emph{layer}) est représenté par une ligne \texttt{[nan, nan, nan]}
+dans \texttt{space directions}, pas par un scalaire \texttt{None} ; un filtre naïf sur le type laisse
+passer cette ligne par erreur et produit un faux mismatch. Conclusion : pas de bug de résolution
+indépendant du bug de transposition --- seule l'anomalie de \texttt{PixelSpacing} déjà connue
+(\S\ref{sec:bug-ordre-frames}) doit être corrigée par rééchantillonnage, et elle affecte le masque et
+l'image de façon cohérente (même résolution des deux côtés, donc un même rééchantillonnage s'applique
+aux deux).
+
+\section{Bug critique n°3 (historique) : ordres opposés entre \texttt{volume\_n4.npy} et le nrrd}
+
+Vérifié par corrélation de pixels sur 3 séries : \texttt{volume\_n4.npy[:,:,i]} correspondait à
+\texttt{IM\_\{i+1\}} (ordre séquentiel), alors que l'axe des images du labelmap nrrd suit l'ordre
+inversé documenté en \S\ref{sec:bug-ordre-frames}. Associer ces deux volumes par le même indice brut
+désalignait silencieusement l'image et le label pour toutes les images sauf celle du milieu. Corrigé
+dans \texttt{load\_aligned\_pair}. \textbf{Ce bug est aujourd'hui sans objet en pratique} : les
+fichiers \texttt{volume\_n4.npy} ont été retirés de \texttt{DATA/} (\S\ref{sec:n4-manquant}), donc
+\texttt{load\_aligned\_pair} ne charge plus que du DICOM brut --- mais la correction reste nécessaire
+dans le code pour le jour où un volume prétraité y sera réintroduit.
+
+\section{Vérification de l'exclusivité mutuelle}
+
+Vérifiée empiriquement sur les 56 séries : l'exclusivité mutuelle des 6 structures est respectée, à
+1 seul pixel de frontière isolé près (dans le fichier à 2 couches déjà cité). Conclusion : une sortie
+softmax multi-classe est justifiée, avec une perte combinée Dice + Cross-Entropy.
+
+\section{Composantes connexes et outliers de position}
+\label{sec:composantes-connexes}
+
+\subsection{Composantes connexes}
+
+Analyse des composantes connexes par structure : 34 des 336 couples structure$\times$série sont
+fragmentés en plus d'un blob (le plus souvent MSC, K1, ASC, PB) --- plausible étant donné les coupes
+transversales de ces structures, mais à vérifier visuellement avant utilisation en aval. CLAV et VSC
+sont quasiment jamais fragmentées.
+
+\subsection{Outliers de barycentre}
+
+Détection des barycentres 3D aberrants (au-delà de 2$\sigma$ sur un axe) entre patients : \textbf{44
+outliers} au total sur les 6 structures $\times$ 3 axes.
+
+\textbf{Hypothèse testée et infirmée (10/08/2026)} : les séries D (droit) et G (gauche) auraient pu
+être des images miroir anatomique l'une de l'autre, et leur mélange dans une seule distribution
+aurait pu gonfler artificiellement l'écart-type et créer de faux outliers. Le test --- refaire la même
+détection séparément par latéralité --- donne \textbf{exactement le même total (44 outliers dans les
+deux cas)} : cette hypothèse est rejetée, le signal n'est pas un artefact du mélange D/G.
+
+Les outliers sont en réalité concentrés sur \textbf{3 patients récurrents}, sur les deux latéralités
+et plusieurs structures/axes : \texttt{2017-110\_01-0222-V1MR} et
+\texttt{2017-110\_01-0223-V1MR/FLASH D} (déjà exclus pour géométrie non résolue, \S précédente) et
+\textbf{\texttt{2017-110\_01-0224-V1MR}, qui n'a aucune autre anomalie connue et mérite une
+vérification visuelle manuelle sous 3D Slicer avant la Phase 0}.
+
+\todonote{Note statistique : avec 6 structures $\times$ 3 axes $\times$ 2 latéralités = 36 tests
+indépendants à 2$\sigma$ sur des échantillons de 25 à 28 séries chacun, quelques faux positifs sont
+attendus par pur hasard --- ne pas sur-interpréter les outliers isolés proches du seuil, se concentrer
+sur les patients qui reviennent systématiquement.}
+
+\section{Distribution de taille par structure}
+\label{sec:taille-structures}
+
+Nombre moyen de voxels annotés par frame et par structure, sur les 51 séries à géométrie résolue :
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Structure & Moyenne & Écart-type & Min & Max \\
+\midrule
+PB   & 403,3 & 221,9 & 94,2  & 1101,6 \\
+K1   & 376,7 & 114,4 & 187,0 & 667,9 \\
+CLAV & 368,6 & 119,0 & 174,4 & 632,2 \\
+VSC  & 175,9 & 56,3  & 86,2  & 349,0 \\
+MSC  & 166,2 & 96,0  & 51,5  & 564,3 \\
+ASC  & 94,0  & 27,2  & 37,4  & 150,5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Déséquilibre \textbf{modéré} entre structures : ratio de 4,3$\times$ entre la plus grande (PB) et la
+plus petite (ASC). Ça justifie une pondération par structure dans la loss Dice en Phase 1, sans
+nécessiter de technique de rééquilibrage agressive (sur-échantillonnage, focal loss, etc.).
+
+\section{Comparaison FLASH vs RSSFP}
+\label{sec:flash-vs-rssfp}
+
+Motivation : FLASH (écho de gradient) et RSSFP (état stationnaire) ont des mécanismes de contraste
+différents ; la littérature s'attend généralement à ce que RSSFP rende le sang hyperintense (pertinent
+pour VSC/ASC).
+
+\textbf{CNR (contraste sur bruit) par structure et par séquence}, sur les 51 séries à géométrie
+résolue, calculé de façon méthodologiquement cohérente --- toutes les séries chargées depuis le DICOM
+brut via \texttt{load\_aligned\_pair}, sans mélange avec d'anciens volumes N4 précalculés
+(\S\ref{sec:n4-manquant}) :
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Structure & CNR FLASH (moy.) & CNR RSSFP (moy.) \\
+\midrule
+ASC  & 2,19 & 0,17 \\
+VSC  & 2,59 & 0,11 \\
+CLAV & 0,24 & 0,11 \\
+MSC  & 0,58 & 0,53 \\
+K1   & 0,35 & 0,50 \\
+PB   & 0,70 & 0,94 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Avant correction du bug de transposition (\S\ref{sec:bug-transposition})} : la conclusion
+provisoire était ``pas de différence systématique forte'' entre FLASH et RSSFP. \textbf{Cette
+conclusion est invalidée} et ne doit plus être citée.
+
+\textbf{Après correction}, confirmé visuellement --- sur FLASH, ASC se situe précisément sur une zone
+hyperintense de flux nette ; sur RSSFP, la même région est bruitée sans contraste net.
+
+\textbf{L'écart FLASH/RSSFP est-il un effet population robuste, ou un artefact de variance
+inter-patient ?} Test : comparer l'écart moyen FLASH$-$RSSFP à l'écart-type inter-patient pour chaque
+structure.
+
+\begin{center}
+\begin{tabular}{lrrl}
+\toprule
+Structure & Écart FLASH$-$RSSFP & Écart-type inter-patient & Verdict \\
+\midrule
+VSC  & +2,31 & 0,43 & écart domine --- effet robuste \\
+ASC  & +1,84 & 0,53 & écart domine --- effet robuste \\
+CLAV & +0,15 & 0,24 & variance inter-patient domine \\
+MSC  & +0,09 & 0,22 & variance inter-patient domine \\
+K1   & $-$0,07 & 0,31 & variance inter-patient domine \\
+PB   & $-$0,14 & 0,20 & variance inter-patient domine \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Conclusion retenue} : l'avantage de FLASH sur ASC et VSC est un \textbf{effet population
+robuste} (il dépasse largement la variabilité entre patients), pas un artefact d'un ou deux cas
+particuliers. C'est contraire à l'attente générale de la littérature sur les séquences steady-state et
+suffisamment surprenant pour être discuté avec le directeur de thèse (hypothèses : paramètres
+d'acquisition spécifiques, agent de contraste sur une seule séquence, spécificités du protocole) avant
+d'orienter le choix de séquence de référence pour la Phase 1. Pour CLAV, MSC, K1 et PB, la variance
+inter-patient domine l'écart entre séquences : \textbf{aucune conclusion FLASH vs RSSFP ne peut être
+tirée de l'EDA seule pour ces 4 structures} ; la vraie comparaison devra venir des métriques du modèle
+entraîné (Phase 1).
+
+\section{État des volumes N4}
+\label{sec:n4-manquant}
+
+Seuls 32 des 56 dossiers patient/série disposaient de \texttt{volume\_n4.npy} (vérifié le 08/08/2026).
+Décision prise dès l'EDA : ne pas construire un pipeline mélangeant fichier précalculé (quand présent)
+et DICOM brut (sinon), car ça biaiserait le prétraitement de façon inconsistante entre patients ---
+dangereux pour une analyse d'interprétabilité.
+
+\textbf{Décision appliquée le 10/08/2026, pas seulement documentée} : les 32 fichiers
+\texttt{volume\_n4.npy} existants ont été déplacés hors de \texttt{DATA/} vers
+\texttt{\_archive\_volume\_n4/}. \texttt{load\_aligned\_pair} retombe donc systématiquement sur le
+DICOM brut pour les 56 séries, ce qui a aussi rendu la comparaison FLASH vs RSSFP
+(\S\ref{sec:flash-vs-rssfp}) méthodologiquement cohérente --- elle ne mélange plus des séries
+N4-corrigées et des séries brutes, contrairement à une version antérieure de cette EDA. La correction
+N4 elle-même (\texttt{src/preprocessing.n4\_bias\_correction}, SimpleITK, shrink-then-apply-full-res)
+est écrite mais reste à brancher uniformément dans le pipeline de Phase 0.
+
+\section{Table de synthèse}
+
+Le notebook se conclut par une table de synthèse unifiée par série, croisant inventaire, statut de
+géométrie, métadonnées, taux de fragmentation et CNR moyen. \textbf{51 séries sur 56 sont utilisables
+automatiquement} pour la Phase 0/1 ; les 5 restantes (patient \texttt{0222} entier +
+\texttt{0223/FLASH D}) nécessitent une vérification manuelle sous 3D Slicer.

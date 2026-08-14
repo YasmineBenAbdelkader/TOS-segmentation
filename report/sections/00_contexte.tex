@@ -1,0 +1,75 @@
+\chapter{Contexte et objectifs}
+\label{chap:contexte}
+
+\section{Problématique clinique}
+
+Le syndrome de défilé cervico-thoracique (\emph{Thoracic Outlet Syndrome}, TOS) est une pathologie
+liée à la compression de structures neurovasculaires au niveau du défilé cervico-thoracique lors de
+certains mouvements du bras. Le diagnostic s'appuie sur une IRM \textbf{dynamique} : une séquence
+d'environ 300 images acquises pendant le mouvement du bras, jouant le rôle d'une vidéo, mais stockée
+physiquement comme des fichiers DICOM individuels (un fichier par image, sans tag DICOM natif de
+vidéo/temporalité).
+
+\section{Objectif de la thèse}
+
+L'objectif \textbf{n'est pas} de maximiser la performance brute d'un modèle de segmentation, mais de
+comprendre \emph{comment} un modèle de deep learning arrive à ses segmentations sur ce type de données.
+L'\textbf{interprétabilité / explicabilité} est la contribution centrale de la thèse ; un modèle de
+segmentation performant est un moyen, pas une fin en soi.
+
+Six structures anatomiques sont ciblées :
+
+\begin{itemize}[nosep]
+    \item \textbf{CLAV} --- clavicule
+    \item \textbf{MSC} --- muscle scalène
+    \item \textbf{VSC} --- veine sous-clavière
+    \item \textbf{ASC} --- artère sous-clavière
+    \item \textbf{K1} --- première côte
+    \item \textbf{PB} --- plexus brachial
+\end{itemize}
+
+Ces six structures ont été confirmées mutuellement exclusives (pas de recouvrement inter-pixel), ce
+qui oriente le choix de sortie du modèle vers un softmax multi-classe plutôt qu'un sigmoïde
+multi-label.
+
+\section{Plan de travail en six phases}
+
+\begin{description}[style=nextline]
+    \item[Phase 0 --- Préparation des données] Finalisation du nettoyage identifié en exploration
+        (rééchantillonnage, normalisation des noms de segments, gestion des masques 4D/multi-couches),
+        construction d'un jeu de données (image, masque) aligné et consolidé, définition d'un split
+        train/val/test au niveau patient (14 patients --- attention aux fuites de données).
+    \item[Phase 1 --- Modèle baseline] U-Net 2D simple (volontairement non état de l'art), entraîné
+        sur les 20 images annotées par série. Dice/Hausdorff par structure comme référence de sanité,
+        pas comme objectif d'optimisation.
+    \item[Phase 2 --- Boîte à outils XAI] Seg-Grad-CAM (saillance par structure), MC Dropout (cartes
+        d'incertitude par structure), analyse par occlusion. Validation qualitative des outils
+        eux-mêmes avant d'en exploiter les résultats.
+    \item[Phase 3 --- Analyse spécifique au caractère dynamique (axe original)] Cohérence temporelle
+        des explications (la saillance dérive-t-elle de façon lisse d'une image à l'autre, comme
+        l'anatomie réelle, ou de façon erratique ?), courbe de compression costoclaviculaire
+        (distance CLAV--K1 en fonction du temps) pour localiser les images cliniquement critiques,
+        corrélation entre incertitude/saillance et distance à l'image annotée la plus proche.
+    \item[Phase 4 --- Ancrage clinique] Curation d'environ 10 à 15 cas représentatifs, session de
+        validation qualitative avec le radiologue superviseur comparant les explications du modèle
+        au raisonnement clinique.
+    \item[Phase 5 --- Extension optionnelle] Entraînement d'une seconde architecture (p.\,ex.
+        attention U-Net) sur le même split pour comparer le comportement d'interprétabilité à
+        performance égale ; éventuellement TCAV sur des concepts cliniques, influence functions /
+        leave-one-out sur les 20 images annotées.
+    \item[Phase 6 --- Synthèse] Table récapitulative par structure (Dice + incertitude + qualité des
+        explications + avis clinicien), rédaction finale.
+\end{description}
+
+\section{État d'avancement}
+
+\begin{itemize}[nosep]
+    \item[\checkmark] Exploration des données (EDA) --- voir chapitre~\ref{chap:exploration}
+    \item[$\square$] Phase 0 --- Préparation des données
+    \item[$\square$] Phase 1 --- Modèle baseline
+    \item[$\square$] Phase 2 --- Boîte à outils XAI
+    \item[$\square$] Phase 3 --- Analyse dynamique
+    \item[$\square$] Phase 4 --- Ancrage clinique
+    \item[$\square$] Phase 5 --- Extension optionnelle
+    \item[$\square$] Phase 6 --- Synthèse
+\end{itemize}

@@ -1,0 +1,11 @@
+pydicom
+pynrrd
+numpy
+pandas
+matplotlib
+scipy
+SimpleITK
+jupyter
+ipykernel
+torch
+scikit-learn
