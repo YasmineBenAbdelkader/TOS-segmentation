@@ -618,11 +618,26 @@ Fold & Config & Epochs & Meilleur epoch & Dice moyen & Anomalie timing \\
 1 & avec aug + crop & 20 & 17 & 0,7434 & aucune notable \\
 1 & sans aug + crop & 20 & 20 & 0,7585 & \textbf{extrême ($\approx$13h de run)} \\
 1 & sans aug, sans crop & 20 & 16 & \textbf{0,7593} & modérée (jusqu'à 8$\times$) \\
-1 & avec aug, sans crop & 20 & 17 & 0,7401 & sévère (plusieurs epochs $>$2000s) \\
+1 & avec aug, sans crop & 30 & 27 & 0,7556 & modérée ($\approx$3$\times$ sur l'epoch 10) \\
 0 & sans aug + crop & 20 & 17 & 0,7187 & \textbf{extrême ($\approx$12,6h de run)} \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\textbf{Incident opérationnel et correction (14/08/2026)} : le run \emph{fold 1, avec
+aug, sans crop} ci-dessus (30 epochs, meilleur epoch 27, Dice moyen 0,7556) est un
+second run complet de cette configuration. Le premier run (20 epochs, meilleur epoch
+17, Dice moyen 0,7401 --- valeur utilisée dans une version antérieure des analyses
+ci-dessous) a eu son fichier de poids \texttt{checkpoint\_fold1\_aug\_nocrop.pt}
+écrasé par un relancement accidentel de la même commande, interrompu après 1 seul
+epoch avant d'avoir pu régénérer les métriques. Le run a donc été refait intégralement
+(30 epochs cette fois) plutôt que de tenter de récupérer l'ancien checkpoint. Les deux
+runs sont des ré-entraînements indépendants de la même configuration (nouvelle
+initialisation aléatoire à chaque fois), pas strictement comparables epoch par epoch
+--- mais comme seul le second dispose désormais de poids valides, c'est lui qui sert
+de référence pour cette configuration dans tout le reste de ce chapitre ; les anciennes
+valeurs (0,7401, et les Hausdorff-95 associés) sont explicitement corrigées ci-dessous
+partout où elles étaient citées.
 
 \textbf{Grille 2$\times$2 (aug $\times$ crop) désormais complète sur fold 0 \emph{et}
 fold 1} (\S\ref{sec:phase1-fold1-grid}, \S\ref{sec:phase1-fold0-grid}) --- premier
@@ -699,14 +714,14 @@ Moyenne & 0,7097 & \textbf{0,7321} & 0,7236 & 0,7187 \\
 \toprule
 Structure & Dice aug+crop & Dice aug+nocrop & Dice noaug+crop & Dice noaug+nocrop \\
 \midrule
-CLAV & 0,8069 & 0,8290 & \textbf{0,8529} & 0,8422 \\
-MSC  & 0,7063 & 0,7478 & \textbf{0,7645} & 0,7646 \\
-VSC  & 0,8808 & 0,8839 & 0,8867 & \textbf{0,8876} \\
-ASC  & 0,7909 & 0,7554 & 0,7750 & \textbf{0,7945} \\
-K1   & \textbf{0,5198} & 0,5014 & 0,5014 & 0,5000 \\
-PB   & 0,7557 & 0,7230 & \textbf{0,7704} & 0,7671 \\
+CLAV & 0,8069 & \textbf{0,8575} & 0,8529 & 0,8422 \\
+MSC  & 0,7063 & 0,7537 & 0,7645 & \textbf{0,7646} \\
+VSC  & 0,8808 & 0,8861 & 0,8867 & \textbf{0,8876} \\
+ASC  & 0,7909 & \textbf{0,8015} & 0,7750 & 0,7945 \\
+K1   & \textbf{0,5198} & 0,4882 & 0,5014 & 0,5000 \\
+PB   & 0,7557 & 0,7466 & \textbf{0,7704} & 0,7671 \\
 \midrule
-Moyenne & 0,7434 & 0,7401 & 0,7585 & \textbf{0,7593} \\
+Moyenne & 0,7434 & 0,7556 & 0,7585 & \textbf{0,7593} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -716,12 +731,12 @@ Moyenne & 0,7434 & 0,7401 & 0,7585 & \textbf{0,7593} \\
 \toprule
 Structure & HD95 aug+crop (px) & HD95 aug+nocrop (px) & HD95 noaug+crop (px) & HD95 noaug+nocrop (px) \\
 \midrule
-CLAV & 5,74 & 4,22 & 3,96 & \textbf{3,75} \\
-MSC  & 5,61 & 4,44 & 3,61 & \textbf{3,68 (proche)} \\
-VSC  & 1,84 & 3,00 & 1,80 & \textbf{1,83 (proche)} \\
-ASC  & 4,25 & 3,41 & \textbf{2,15} & 2,42 \\
-K1   & \textbf{7,57} & 12,78 & 11,51 & 9,27 \\
-PB   & 6,08 & 6,01 & 6,56 & \textbf{5,62} \\
+CLAV & 5,74 & \textbf{3,52} & 3,96 & 3,75 \\
+MSC  & 5,61 & 3,63 & 3,61 & \textbf{3,68 (proche)} \\
+VSC  & 1,84 & 2,30 & 1,80 & \textbf{1,83 (proche)} \\
+ASC  & 4,25 & 2,16 (proche) & \textbf{2,15} & 2,42 \\
+K1   & \textbf{7,57} & 10,09 & 11,51 & 9,27 \\
+PB   & 6,08 & 8,71 & 6,56 & \textbf{5,62} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -730,37 +745,52 @@ PB   & 6,08 & 6,01 & 6,56 & \textbf{5,62} \\
 confirme proprement.} En regroupant par facteur :
 
 \begin{itemize}[nosep]
-    \item \textbf{Effet crop (à aug fixé)} : quasi nul --- aug+crop vs aug+nocrop
-        (0,7434 vs 0,7401, écart 0,0033) ; noaug+crop vs noaug+nocrop (0,7585 vs
-        0,7593, écart 0,0008).
-    \item \textbf{Effet augmentation (à crop fixé)} : net et systématique dans le
-        sens négatif --- les deux configs avec aug (0,7401--0,7434) sont
-        \textbf{$\approx$0,016--0,019 en dessous} des deux configs sans aug
-        (0,7585--0,7593), quelle que soit la position du crop.
+    \item \textbf{Effet crop (à aug fixé)} : aug+crop vs aug+nocrop (0,7434 vs
+        0,7556, écart -0,0122) --- le crop nuit désormais légèrement en présence
+        d'augmentation ; noaug+crop vs noaug+nocrop (0,7585 vs 0,7593, écart 0,0008)
+        --- quasi nul, inchangé.
+    \item \textbf{Effet augmentation (à crop fixé)} : sans crop, l'aug est
+        \textbf{quasi neutre} (0,7556 vs 0,7593, écart -0,0037, négligeable) ; avec
+        crop, l'aug nuit plus nettement (0,7434 vs 0,7585, écart -0,0151). L'effet
+        n'est donc \textbf{pas} ``net et systématique'' comme une version antérieure
+        de ce chapitre le concluait avant correction du run aug+nocrop (\S Runs
+        effectués) --- il dépend de la position du crop.
 \end{itemize}
 
-\textbf{Sur ce fold, c'est donc bien l'augmentation qui nuit, indépendamment du
-crop} --- pas une interaction spécifique entre les deux comme envisagé
-précédemment. Le même schéma se retrouve globalement en Hausdorff-95 (CLAV, MSC,
-ASC systématiquement moins bons avec aug qu'sans, quel que soit le crop), à
-l'exception de K1 où aug+crop reste la meilleure config des 4 (7,57\,px).
+\textbf{Correction (14/08/2026, après re-entraînement du run aug+nocrop, \S Runs
+effectués)} : la lecture initiale (``l'augmentation nuit indépendamment du crop'')
+ne tient plus. L'effet de l'augmentation \textbf{dépend nettement de la position du
+crop} : quasi neutre sans crop, négatif avec crop actif --- c'est une
+\textbf{interaction} entre les deux facteurs, pas un effet principal indépendant.
+Le même renversement partiel s'observe en Hausdorff-95 : \textbf{avec crop},
+l'augmentation reste nettement pire pour CLAV, MSC et ASC (comme avant) ;
+\textbf{sans crop}, elle est désormais \emph{meilleure} pour ces trois mêmes
+structures (CLAV 3,52 vs 3,75 ; MSC 3,63 vs 3,68 ; ASC 2,16 vs 2,42) --- seule VSC
+reste légèrement moins bonne avec augmentation, crop actif ou non. K1 reste la seule
+structure où aug+crop demeure la meilleure config des 4 (7,57\,px).
 
-\textbf{Contradiction directe, non résolue, avec la conclusion de fold 0}
-(\S\ref{sec:phase1-comparaison-aug}) où l'augmentation \emph{sans crop} améliorait
-nettement le Hausdorff-95 de CLAV ($-44\%$) et MSC ($-39\%$). Sur fold 1, sans crop,
-c'est l'inverse : aug+nocrop a un Hausdorff-95 \emph{plus élevé} que noaug+nocrop
-pour CLAV (4,22 vs 3,75), MSC (4,44 vs 3,68) et surtout VSC (3,00 vs 1,83). \textbf{Un
-seul fold ne permet pas de trancher lequel des deux folds est l'exception} --- fold 0
-pourrait être le cas favorable à l'augmentation, ou fold 1 le cas défavorable ;
-seuls des folds supplémentaires permettront de savoir si l'augmentation apporte un
-bénéfice \emph{en moyenne} sur la population de patients, ou si son effet dépend
-fortement de qui se trouve en validation.
+\textbf{Convergence partielle avec fold 0, une fois la correction du 14/08/2026
+appliquée} (\S\ref{sec:phase1-comparaison-aug}) : sur fold 0, l'augmentation sans
+crop améliorait nettement le Hausdorff-95 de CLAV ($-44\%$) et MSC ($-39\%$). Avec le
+run corrigé de fold 1, \textbf{le même sens d'effet se retrouve} : aug+nocrop a un
+Hausdorff-95 plus bas que noaug+nocrop pour CLAV (3,52 vs 3,75) et MSC (3,63 vs 3,68)
+--- la ``contradiction directe'' notée dans une version antérieure de ce chapitre
+reposait sur le premier run de fold 1, dont le checkpoint a depuis été
+accidentellement écrasé puis refait (\S Runs effectués) ; les anciennes valeurs
+(CLAV 4,22 ; MSC 4,44) ne sont plus valides. \textbf{VSC reste l'exception} :
+Hausdorff-95 plus élevé avec aug qu'sans, sur les deux folds (fold 1 : 2,30 vs 1,83).
+\textbf{Toujours pas de conclusion tranchée sur le bénéfice moyen de l'augmentation
+sur le Dice} (\S\ref{sec:phase1-aug-signe}), mais une piste plus solide se dégage
+maintenant sur le Hausdorff-95 : l'augmentation semble aider spécifiquement
+CLAV/MSC \emph{quand le crop est inactif}, sur les deux folds disponibles --- à
+confirmer sur folds 2--4 avant toute généralisation.
 
-\textbf{K1 reste plat sur les 4 configs en Dice} (0,500--0,520), confirmant sa
-faiblesse structurelle indépendamment de l'augmentation et du crop --- cohérent avec
-fold 0. Son Hausdorff-95 varie beaucoup plus (7,57 à 12,78\,px) et, contrairement aux
-5 autres structures, semble profiter de l'augmentation \emph{avec} crop
-spécifiquement (meilleur score des 4 configs) --- signal isolé, à confirmer sur
+\textbf{K1 reste globalement plat sur les 4 configs en Dice} (0,488--0,520,
+légèrement plus large qu'estimé avant la correction du run aug+nocrop), confirmant
+sa faiblesse structurelle indépendamment de l'augmentation et du crop --- cohérent
+avec fold 0. Son Hausdorff-95 varie beaucoup plus (7,57 à 11,51\,px) et,
+contrairement aux 5 autres structures, semble profiter de l'augmentation \emph{avec}
+crop spécifiquement (meilleur score des 4 configs) --- signal isolé, à confirmer sur
 d'autres folds avant d'y accorder du poids.
 
 \subsection{Comparaison croisée fold 0 / fold 1 --- l'effet de l'augmentation change
@@ -776,22 +806,27 @@ Les deux grilles complètes (\S\ref{sec:phase1-fold0-grid},
 Effet augmentation (Dice moyen) & Sans crop & Avec crop \\
 \midrule
 Fold 0 & +0,022 & +0,005 \\
-Fold 1 & -0,019 & -0,015 \\
+Fold 1 & -0,004 & -0,015 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{L'augmentation aide sur fold 0 et nuit sur fold 1, dans les deux positions du
-crop} --- le signe s'inverse complètement entre les deux folds, alors que
-\textbf{l'effet du crop, lui, reste petit et cohérent sur les deux}
-(\S\ref{sec:phase1-fold0-grid}, \S\ref{sec:phase1-fold1-grid}). Avec seulement 2
-folds, impossible de savoir si l'augmentation apporte un bénéfice réel en moyenne sur
-la population (fold 1 serait l'exception) ou l'inverse (fold 0 serait l'exception)
---- \textbf{la question ne se tranche pas avec les données actuelles}, seuls des
-folds supplémentaires (2, 3, 4) permettront de voir une tendance majoritaire. La
-conclusion de \S\ref{sec:phase1-comparaison-aug} (``l'augmentation améliore le
-Hausdorff-95 de CLAV/MSC'') ne doit donc \textbf{pas} être généralisée en l'état dans
-une synthèse finale.
+\textbf{Une fois la correction du 14/08/2026 appliquée (\S Runs effectués), l'image
+change} : sur fold 1 sans crop, l'effet de l'augmentation sur le Dice devient
+quasi négligeable (-0,004, contre -0,019 dans une version antérieure de ce chapitre)
+--- il ne s'inverse donc plus aussi nettement entre les deux folds dans cette
+position du crop. \textbf{Avec crop actif, le signe reste opposé entre les deux
+folds} (fold 0 : +0,005 ; fold 1 : -0,015), même si les deux magnitudes restent
+petites. \textbf{L'effet du crop, lui, reste petit et globalement cohérent sur les
+deux folds} (\S\ref{sec:phase1-fold0-grid}, \S\ref{sec:phase1-fold1-grid}). Avec
+seulement 2 folds et des effets de cet ordre de grandeur (souvent $<$0,02 en Dice),
+la question du bénéfice \emph{moyen} de l'augmentation sur le Dice reste ouverte ---
+seuls des folds supplémentaires (2, 3, 4) permettront de voir une tendance
+majoritaire. En revanche sur le Hausdorff-95, une piste plus solide se dégage
+maintenant (\S\ref{sec:phase1-fold1-grid}) : l'augmentation semble aider CLAV/MSC
+\emph{quand le crop est inactif}, sur les deux folds disponibles --- cette piste,
+plus étayée qu'avant, reste néanmoins à confirmer sur folds 2--4 avant toute
+généralisation dans une synthèse finale.
 
 \subsection{Anomalies de timing --- corrélées à une configuration précise, pas
 aléatoires}

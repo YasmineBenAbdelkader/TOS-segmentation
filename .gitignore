@@ -1,6 +1,8 @@
 # Data (patient MRI data — never commit)
 DATA/
 DATA_processed/
+DATA_processed.zip
+*.zip
 _archive_volume_n4/
 
 # Model checkpoints / large binaries

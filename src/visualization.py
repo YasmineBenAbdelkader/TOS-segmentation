@@ -181,18 +181,21 @@ def plot_qualitative(model, dataset, device, out_path, n_samples=4, seed=0):
     plt.close(fig)
 
 
-def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, fold):
+def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, tag):
+    """tag : préfixe complet des fichiers générés (ex. 'baseline_FLASH_fold0'), pas
+    seulement un numéro de fold — permet de distinguer les runs par séquence/modèle
+    sans coupler cette fonction à la convention de nommage d'un script particulier."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    save_history_csv(history, out_dir / f"phase1_fold{fold}_history.csv")
-    plot_loss_curve(history, out_dir / f"phase1_fold{fold}_loss.png")
-    plot_dice_curve(history, out_dir / f"phase1_fold{fold}_dice_curve.png")
-    plot_train_val_gap(history, out_dir / f"phase1_fold{fold}_train_val_gap.png")
+    save_history_csv(history, out_dir / f"{tag}_history.csv")
+    plot_loss_curve(history, out_dir / f"{tag}_loss.png")
+    plot_dice_curve(history, out_dir / f"{tag}_dice_curve.png")
+    plot_train_val_gap(history, out_dir / f"{tag}_train_val_gap.png")
     plot_final_metrics_bar(
         final_metrics["dice"].tolist(), final_metrics["precision"].tolist(),
         final_metrics["recall"].tolist(), final_metrics["hausdorff95"].tolist(),
-        out_dir / f"phase1_fold{fold}_final_metrics.png",
+        out_dir / f"{tag}_final_metrics.png",
     )
-    plot_qualitative(model, val_dataset, device, out_dir / f"phase1_fold{fold}_qualitative.png")
-    print(f"Figures sauvegardées dans {out_dir} (préfixe phase1_fold{fold}_*)")
+    plot_qualitative(model, val_dataset, device, out_dir / f"{tag}_qualitative.png")
+    print(f"Figures sauvegardées dans {out_dir} (préfixe {tag}_*)")

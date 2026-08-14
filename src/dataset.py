@@ -28,16 +28,28 @@ class TOSDataset(Dataset):
 
     image : (1, H, W) float32, déjà normalisée (clip percentile + z-score).
     label : (H, W) long, valeurs 0 (fond) à 6 (structures canoniques, voir CANON).
-    Recadrage ROI_CROP appliqué avant l'augmentation si crop=True (défaut) — jamais de
-    recadrage différent entre train et val, c'est une constante fixe, pas apprise.
+    Recadrage ROI_CROP appliqué avant l'augmentation si crop=True (désactivé par
+    défaut depuis la méthodologie littérature-first du baseline FLASH/RSSFP — nnU-Net,
+    la référence du domaine, ne fait pas de crop fixe non appris par défaut ; gardé
+    disponible pour une éventuelle extension cascade, pas pour ce baseline) — jamais de
+    recadrage différent entre train et val quand actif, c'est une constante fixe, pas
+    apprise.
+
+    sequence : "all" (défaut, FLASH+RSSFP) ou "FLASH"/"RSSFP" pour restreindre aux
+    séries de ce type uniquement — utilisé pour entraîner les modèles spécialisés
+    (comparaison FLASH vs RSSFP au niveau modèle, pas seulement au niveau contraste).
     """
 
-    def __init__(self, processed_dir, patients, transform=None, crop=True):
+    def __init__(self, processed_dir, patients, transform=None, crop=False, sequence="all"):
         self.processed_dir = Path(processed_dir)
         manifest = pd.read_csv(self.processed_dir / "manifest.csv")
         ok = manifest[(manifest.status == "OK") & (manifest.patient.isin(patients))]
+        if sequence != "all":
+            if sequence not in ("FLASH", "RSSFP"):
+                raise ValueError(f"sequence doit être 'all', 'FLASH' ou 'RSSFP', reçu {sequence!r}")
+            ok = ok[ok.serie.str.startswith(sequence)]
         if ok.empty:
-            raise ValueError(f"Aucune série 'OK' pour les patients fournis : {patients}")
+            raise ValueError(f"Aucune série 'OK' pour les patients/séquence fournis : {patients}, sequence={sequence}")
 
         self.index = []  # (patient, serie, frame_idx)
         for _, r in ok.iterrows():
