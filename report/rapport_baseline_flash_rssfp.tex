@@ -212,7 +212,7 @@ chaque run ajoute ses lignes patient$\times$structure à
 \chapter{Résultats}
 \label{chap:resultats}
 
-\todonote{5 runs restants (FLASH fold 1--2, RSSFP fold 0--2) avant de pouvoir faire
+\todonote{4 runs restants (FLASH fold 2, RSSFP fold 0--2) avant de pouvoir faire
 la comparaison statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette
 section sera complétée à chaque run.}
 
@@ -261,6 +261,54 @@ runs de 12--13h observés sur ``sans aug + crop'' dans l'exploration préliminai
 (qui ont motivé la décision de retirer le crop de ce baseline), mais pas totalement
 absente. Le crop n'était donc pas l'unique cause -- à surveiller sur les 5 runs
 restants avant de conclure quoi que ce soit sur l'origine exacte.
+
+\section{FLASH, fold 1}
+
+30 epochs, 9 patients train (340 frames) / 4 patients val (160 frames ---
+\texttt{2017-110 01-0230-V1MR}, \texttt{\_0231}, \texttt{\_0240}, \texttt{\_0228}).
+Meilleur checkpoint à l'epoch 25 (Dice moyen structures = 0,7796).
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,8478 & 0,7682 & 0,9535 & 15,82 & 0,8690 \\
+MSC  & 0,7103 & 0,7352 & 0,7244 & 12,39 & 0,7826 \\
+VSC  & 0,8831 & 0,8298 & 0,9484 & 4,08 & 0,9451 \\
+ASC  & 0,8309 & 0,7427 & 0,9525 & 1,93 & 0,9571 \\
+K1   & 0,6256 & 0,5702 & 0,7207 & 8,31 & 0,7396 \\
+PB   & 0,7796 & 0,7955 & 0,7844 & 4,67 & 0,8172 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold1_dice_curve.png}
+\end{center}
+
+\textbf{K1 reste la structure la plus faible \emph{en relatif}} (dernière des 6 sur
+Dice et NSD dans ce fold aussi) \textbf{mais avec une valeur absolue nettement
+meilleure qu'au fold 0} (0,63 contre 0,48) --- quatrième configuration
+d'entraînement indépendante (pooled fold0, pooled fold1, FLASH fold0, FLASH fold1)
+où K1 ressort dernière en classement relatif, mais la magnitude varie fortement
+selon la composition du fold de validation --- cohérent avec ce qui avait déjà été
+observé sur le modèle pooled (exploration préliminaire) : la difficulté est
+structurelle et systématique, mais son ampleur dépend des patients présents en
+validation, pas seulement de la structure elle-même.
+
+\textbf{Anomalie à noter, à vérifier qualitativement} : CLAV a un Hausdorff-95
+inhabituellement élevé (15,82px) malgré un bon Dice (0,85) et un bon NSD (0,87) ---
+signature typique d'un petit faux positif isolé loin de la structure réelle sur un
+échantillon de validation (le Dice et le NSD y sont peu sensibles, le HD95 les
+détecte fortement, voir chapitre Méthodologie). À confirmer sur la figure qualitative
+(\texttt{baseline\_FLASH\_fold1\_qualitative.png}) avant d'en tirer une conclusion.
+
+\textbf{Anomalie de timing, isolée cette fois} : un seul epoch (23) a pris 1537s
+contre $\approx$75--120s pour les autres --- moins fréquente que sur le fold 0 (3
+epochs touchés), mais confirme que l'anomalie n'est pas éliminée par le retrait du
+crop, seulement atténuée en fréquence/sévérité. Un seul run FLASH restant (fold 2)
+avant de pouvoir statuer plus largement sur le pattern.
 
 \chapter{Analyse statistique}
 
