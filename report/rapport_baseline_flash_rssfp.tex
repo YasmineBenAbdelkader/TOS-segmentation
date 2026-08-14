@@ -14,9 +14,10 @@
 
 \newcommand{\todonote}[1]{\textcolor{red}{\textbf{[À COMPLÉTER : #1]}}}
 
-\title{Baseline de segmentation FLASH vs RSSFP \\
-\large Méthodologie littérature-first et comparaison au niveau modèle \\
-\large Document de suivi de thèse -- complément à \texttt{main.tex}}
+\title{Segmentation automatique et interprétable de structures anatomiques \\
+sur IRM dynamique du défilé cervico-thoracique \\
+\large Baseline FLASH vs RSSFP -- méthodologie littérature-first \\
+\large Rapport de suivi de thèse}
 \author{Yasmine Ben Abdelkader}
 \date{Document vivant --- dernière mise à jour : \today}
 
@@ -26,13 +27,17 @@
 \maketitle
 \tableofcontents
 
-\chapter{Champ de ce document}
+\input{sections/00_contexte}
+\input{sections/01_donnees}
+\input{sections/02_exploration}
+\input{sections/03_phase0_prep}
 
-Ce document remplace, pour la question de la comparaison FLASH vs RSSFP, l'approche
-suivie dans \texttt{report/sections/04\_phase1\_baseline.tex} (conservé tel quel dans
-le rapport principal comme trace de l'exploration initiale, non répété ici). Deux
-différences de fond motivent un document séparé plutôt qu'une révision du chapitre
-existant :
+\chapter{Champ de ce chapitre}
+
+À partir d'ici, ce document remplace l'approche de baseline suivie initialement
+(grille d'ablation augmentation$\times$crop sur un modèle pooled, fold 0/1 --- non
+reprise ici, voir historique git pour cette étape intermédiaire si besoin). Deux
+différences de fond motivent ce changement d'approche :
 
 \begin{itemize}[nosep]
     \item \textbf{Méthodologie décidée a priori, à partir de la littérature} --- pas
@@ -48,9 +53,9 @@ existant :
 \section{Ce qui est repris de l'exploration préliminaire}
 \label{sec:limite-ancienne-approche}
 
-Deux résultats de l'exploration initiale (chapitre Exploration du rapport principal)
-restent valides et informent ce document, indépendamment de la méthodologie
-d'entraînement retenue :
+Deux résultats de l'exploration initiale (chapitre~\ref{chap:exploration}) restent
+valides et informent ce document, indépendamment de la méthodologie d'entraînement
+retenue :
 
 \begin{description}[style=nextline]
     \item[Bug d'alignement H/W] Le labelmap (\texttt{.seg.nrrd}) et l'image DICOM
@@ -73,9 +78,9 @@ d'entraînement retenue :
 \end{description}
 
 Les résultats d'entraînement de l'exploration préliminaire (grille aug$\times$crop,
-folds 0/1 du modèle pooled) ne sont \textbf{pas} repris ici -- ils restent disponibles
-dans \texttt{04\_phase1\_baseline.tex} pour référence historique, mais ce document
-part d'une méthodologie déjà décidée, pas d'une comparaison empirique menant à cette
+folds 0/1 du modèle pooled) ne sont \textbf{pas} repris ici -- retirés du rapport
+(disponibles dans l'historique git si besoin de les reconsulter), ce document part
+d'une méthodologie déjà décidée, pas d'une comparaison empirique menant à cette
 décision.
 
 \chapter{Méthodologie}
