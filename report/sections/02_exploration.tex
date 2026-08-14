@@ -251,10 +251,11 @@ robuste} (il dépasse largement la variabilité entre patients), pas un artefact
 particuliers. C'est contraire à l'attente générale de la littérature sur les séquences steady-state et
 suffisamment surprenant pour être discuté avec le directeur de thèse (hypothèses : paramètres
 d'acquisition spécifiques, agent de contraste sur une seule séquence, spécificités du protocole) avant
-d'orienter le choix de séquence de référence pour la Phase 1. Pour CLAV, MSC, K1 et PB, la variance
-inter-patient domine l'écart entre séquences : \textbf{aucune conclusion FLASH vs RSSFP ne peut être
-tirée de l'EDA seule pour ces 4 structures} ; la vraie comparaison devra venir des métriques du modèle
-entraîné (Phase 1).
+d'interpréter la comparaison FLASH vs RSSFP au niveau modèle en Phase 1. Pour CLAV, MSC, K1 et PB, la
+variance inter-patient domine l'écart entre séquences : \textbf{aucune conclusion FLASH vs RSSFP ne
+peut être tirée de l'EDA seule pour ces 4 structures} ; la vraie comparaison vient des métriques des
+deux modèles spécialisés entraînés en Phase 1 (FLASH-only et RSSFP-only, pas un choix d'une séquence
+de référence unique --- voir chapitre Protocole expérimental).
 
 \section{État des volumes N4}
 \label{sec:n4-manquant}

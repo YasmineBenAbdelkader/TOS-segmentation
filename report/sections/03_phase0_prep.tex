@@ -283,16 +283,21 @@ Test (2)  & 0240, 0242 \\
 (\texttt{2017-110\_01-0222-V1MR} exclu, 0 série utilisable ; identifiants patient
 abrégés au numéro final.)
 
-\subsection{Point ouvert}
+\subsection{Point résolu en Phase 1}
 
 Avec seulement 13 patients éligibles, un split fixe laisse très peu de patients en
-val/test (2 chacun) --- l'évaluation sur un split aussi petit sera bruitée, une variation
-d'un seul patient pouvant faire basculer une métrique de façon importante.
-\todonote{Décider avant la Phase 1 : garder ce split fixe (simple, mais peu robuste), ou
-passer à une validation croisée \emph{GroupKFold} au niveau patient (plus robuste,
-plus coûteuse en temps de calcul --- $k$ entraînements au lieu d'un). Discuter aussi
-avec l'encadrant si D et G doivent être traités comme un flip horizontal l'un de
-l'autre, ce qui influence à la fois le split et l'augmentation de données en Phase 1.}
+val/test (2 chacun) --- l'évaluation sur un split aussi petit serait bruitée, une
+variation d'un seul patient pouvant faire basculer une métrique de façon importante.
+\textbf{Décision prise en Phase 1} (chapitre Protocole expérimental) : abandon du
+split fixe au profit d'une validation croisée \texttt{KFold} au niveau patient
+($k=3$) --- chaque patient passe exactement une fois en validation, et la comparaison
+FLASH vs RSSFP est faite au niveau patient plutôt qu'au niveau fold pour rester
+statistiquement exploitable malgré le petit $k$ (voir justification détaillée dans
+le chapitre Protocole expérimental).
+
+Reste ouvert, non tranché avec l'encadrant : si D et G doivent être traités comme un
+flip horizontal l'un de l'autre --- en attendant, le flip horizontal n'est pas utilisé
+comme augmentation (choix conservateur, voir chapitre Méthodologie).
 
 \section{Sources et justifications --- récapitulatif}
 
@@ -311,8 +316,6 @@ Split patient-level, exclusion des cas non vérifiés & Varoquaux \& Cheplygina 
 \end{tabular}
 \end{center}
 
-\todonote{Compléter cette section avec le journal des décisions et résultats au fur et
-à mesure de l'avancement effectif de la Phase 0 (au-delà de ce qui est déjà acté
-ci-dessus) --- notamment la décision split fixe vs cross-validation et la vérification
-manuelle des 6 séries en attente (\texttt{0222} $\times$4, \texttt{0223/FLASH D},
-\texttt{0224} $\times$4).}
+\todonote{Vérification manuelle encore en attente (non bloquante pour la Phase 1,
+ces séries restent exclues) : les 6 séries non résolues
+(\texttt{0222} $\times$4, \texttt{0223/FLASH D}, \texttt{0224} $\times$4).}

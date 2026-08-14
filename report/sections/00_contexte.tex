@@ -40,8 +40,12 @@ multi-label.
         construction d'un jeu de données (image, masque) aligné et consolidé, définition d'un split
         train/val/test au niveau patient (14 patients --- attention aux fuites de données).
     \item[Phase 1 --- Modèle baseline] U-Net 2D simple (volontairement non état de l'art), entraîné
-        sur les 20 images annotées par série. Dice/Hausdorff par structure comme référence de sanité,
-        pas comme objectif d'optimisation.
+        sur les 20 images annotées par série. Dice/Hausdorff-95/NSD par structure comme référence de
+        sanité, pas comme objectif d'optimisation. \textbf{Deux modèles spécialisés} (FLASH-only,
+        RSSFP-only, pas de modèle pooled) pour répondre directement à la question clinique FLASH vs
+        RSSFP au niveau modèle ; méthodologie (perte, augmentation, absence de recadrage ROI) décidée
+        a priori à partir de la littérature plutôt que par ablation empirique --- voir le chapitre
+        Méthodologie du présent document pour le détail et les justifications.
     \item[Phase 2 --- Boîte à outils XAI] Seg-Grad-CAM (saillance par structure), MC Dropout (cartes
         d'incertitude par structure), analyse par occlusion. Validation qualitative des outils
         eux-mêmes avant d'en exploiter les résultats.
@@ -65,8 +69,8 @@ multi-label.
 
 \begin{itemize}[nosep]
     \item[\checkmark] Exploration des données (EDA) --- voir chapitre~\ref{chap:exploration}
-    \item[$\square$] Phase 0 --- Préparation des données
-    \item[$\square$] Phase 1 --- Modèle baseline
+    \item[\checkmark] Phase 0 --- Préparation des données
+    \item[$\blacksquare$] Phase 1 --- Modèle baseline (en cours : 1/6 runs terminés --- FLASH fold 0)
     \item[$\square$] Phase 2 --- Boîte à outils XAI
     \item[$\square$] Phase 3 --- Analyse dynamique
     \item[$\square$] Phase 4 --- Ancrage clinique
