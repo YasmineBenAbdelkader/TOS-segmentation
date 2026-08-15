@@ -212,9 +212,8 @@ chaque run ajoute ses lignes patient$\times$structure à
 \chapter{Résultats}
 \label{chap:resultats}
 
-\todonote{1 run restant (RSSFP fold 0) avant de pouvoir faire la comparaison
-statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette section sera
-complétée à chaque run.}
+Les 6 runs (FLASH$\times$3 folds, RSSFP$\times$3 folds) sont maintenant tous
+terminés --- comparaison statistique complète en fin de chapitre suivant.
 
 \section{FLASH, fold 0}
 
@@ -499,12 +498,146 @@ d'un patient spécifique plutôt qu'un problème systématique du modèle RSSFP.
 Il reste \textbf{RSSFP fold 0} avant de pouvoir clore la série des 6 runs et lancer
 la comparaison statistique par patient.
 
-\chapter{Analyse statistique}
+\section{RSSFP, fold 0}
 
-\todonote{À faire une fois les 6 runs terminés : test de Wilcoxon signé-apparié par
-structure (FLASH vs RSSFP, $n\approx13$ patients), correction de Holm-Bonferroni pour
-les 6 tests (6 structures), et rapport des tailles d'effet (pas seulement les
-p-values) -- voir \S\ref{sec:protocole-cv} pour la justification du choix
-méthodologique de ce test.}
+30 epochs, 9 patients train (360 frames) / 4 patients val (160 frames ---
+\texttt{2017-110 01-0229-V1MR}, \texttt{\_0223}, \texttt{\_0226}, \texttt{\_0227} ---
+mêmes patients de validation que FLASH fold 0). Meilleur checkpoint à l'epoch 29
+(Dice moyen structures = 0,7207). \textbf{Aucune anomalie de timing} (79--101s) ---
+troisième run RSSFP consécutif sans anomalie, contre 3/3 runs FLASH affectés à des
+degrés divers.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,7919 & 0,7436 & 0,8631 & 6,56 & 0,8037 \\
+MSC  & 0,6693 & 0,6095 & 0,7806 & 5,38 & 0,7692 \\
+VSC  & 0,8346 & 0,8372 & 0,8574 & 3,19 & 0,9340 \\
+ASC  & 0,8317 & 0,8136 & 0,8710 & 2,76 & 0,9544 \\
+K1   & 0,5103 & 0,4195 & 0,6864 & 14,09 & 0,6664 \\
+PB   & 0,6866 & 0,6685 & 0,7867 & 8,93 & 0,6933 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold0_dice_curve.png}
+\end{center}
+
+\textbf{K1 confirmée dernière pour la huitième fois sur huit configurations
+d'entraînement indépendantes, sans exception} --- résultat désormais entièrement
+non ambigu. HD95 sans anomalie ce fold (comme fold 2, contrairement à fold 1).
+
+\section{Synthèse RSSFP (3 folds)}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Structure & Dice fold 0 & Dice fold 1 & Dice fold 2 \\
+\midrule
+CLAV & 0,7919 & 0,8193 & 0,8267 \\
+MSC  & 0,6693 & 0,6574 & 0,6961 \\
+VSC  & 0,8346 & 0,8551 & 0,8760 \\
+ASC  & 0,8317 & 0,6774 & 0,7988 \\
+K1   & 0,5103 & 0,5161 & 0,3985 \\
+PB   & 0,6866 & 0,6560 & 0,6966 \\
+\midrule
+Moyenne & 0,7207 & 0,6969 & 0,7154 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+RSSFP montre une variabilité inter-fold plus faible que FLASH sur le Dice moyen
+(0,70--0,72 contre 0,68--0,78 pour FLASH) --- à ne pas sur-interpréter comme
+``RSSFP plus stable'' avant la comparaison appariée par patient ci-après, qui seule
+neutralise l'effet de composition du fold.
+
+\chapter{Analyse statistique}
+\label{chap:analyse-stat}
+
+\section{Méthode}
+
+Comparaison FLASH vs RSSFP au niveau \textbf{patient}, pas au niveau fold
+(\S\ref{sec:protocole-cv}) : chaque patient dispose d'un Dice sous le modèle FLASH
+et d'un Dice sous le modèle RSSFP (même patient, même split de folds pour les deux
+séquences --- le patient \texttt{2017-110\_01-0224-V1MR}, toujours forcé en train,
+n'a jamais de score de validation et est donc exclu, $n=12$ patients appariés).
+Test de \textbf{Wilcoxon signé-apparié} par structure (\texttt{scipy.stats.wilcoxon}),
+correction de \textbf{Holm-Bonferroni} pour les 6 tests (une structure = un test,
+$\alpha=0{,}05$). Implémenté dans \texttt{scripts/analyze\_flash\_vs\_rssfp.py},
+résultats dans \texttt{report/figures/flash\_vs\_rssfp\_stats.csv}.
+
+\section{Résultats}
+
+\begin{center}
+\begin{tabular}{lrrrrl}
+\toprule
+Structure & Dice médian FLASH & Dice médian RSSFP & Diff. médiane (F$-$R) & FLASH
+meilleur & $p$ (brut) \\
+\midrule
+CLAV & 0,8308 & 0,8098 & +0,0175 & 8/12 & 0,110 \\
+MSC  & 0,7617 & 0,7115 & +0,0361 & 8/12 & 0,204 \\
+VSC  & 0,8679 & 0,8659 & $-$0,0084 & 4/12 & 0,233 \\
+ASC  & 0,7608 & 0,8203 & $-$0,0455 & 4/12 & 0,176 \\
+K1   & 0,4799 & 0,4844 & +0,0655 & 7/12 & 0,424 \\
+PB   & 0,7017 & 0,6949 & +0,0535 & 7/12 & 0,519 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Aucune différence statistiquement significative entre FLASH et RSSFP, sur
+aucune des 6 structures} ($p$ brut entre 0,11 et 0,52 --- la correction de
+Holm-Bonferroni, plus stricte, ne change donc rien à cette conclusion : rien n'était
+significatif avant correction).
+
+\textbf{Résultat le plus notable : ASC et VSC, structures où l'EDA préliminaire
+montrait un avantage CNR robuste de FLASH au niveau population}
+(\S\ref{sec:limite-ancienne-approche}, +1,84 et +2,31, très supérieur à la variance
+inter-patient), \textbf{ne montrent pas cet avantage au niveau du Dice du modèle
+entraîné} --- pour ASC, la tendance numérique va même dans le sens opposé (médiane
+RSSFP plus haute, FLASH meilleur sur seulement 4/12 patients), bien que non
+significatif. \textbf{Un contraste plus net à l'EDA ne s'est donc pas traduit en un
+avantage de segmentation mesurable ici} : un meilleur rapport contraste/bruit rend
+une structure plus visible à l'œil ou à une mesure d'intensité brute, mais n'implique
+pas nécessairement que le réseau en tire un avantage de segmentation, surtout avec
+un modèle spécialisé entraîné sur deux fois moins de données (une seule paire D/G au
+lieu de deux) et seulement 12 patients au total pour détecter une différence.
+
+\textbf{Limite de puissance statistique, à assumer explicitement} : avec $n=12$
+patients appariés, seuls des effets larges et systématiques peuvent être détectés
+--- le test de Wilcoxon signé-rang avec $n=12$ ne peut atteindre $p<0{,}05$
+qu'à partir d'un accord de signe assez marqué entre patients (au minimum 10/12 ou
+2/12 dans le même sens, selon la table exacte des rangs signés). Une différence
+réelle mais modeste, ou dont le sens varie beaucoup d'un patient à l'autre --- ce qui
+est précisément le profil observé ici (4 à 8 patients sur 12 selon la structure,
+jamais une majorité écrasante) --- ne sera pas détectée avec cet échantillon. Ce
+n'est pas un résultat négatif à minimiser : \textbf{c'est une absence de preuve
+d'écart au niveau modèle}, pas une preuve d'absence d'écart, sur une taille
+d'échantillon assumée petite dès la conception du protocole
+(\S\ref{sec:protocole-cv}).
+
+\textbf{Point de cohérence avec le reste du chapitre} : K1 reste la structure avec
+le Dice médian le plus bas des deux séquences (0,48 FLASH, 0,48 RSSFP --- quasiment
+identique), cohérent avec la conclusion déjà établie sur 8/8 runs
+(\S\ref{chap:resultats}) que sa faiblesse est structurelle et \textbf{indépendante de
+la séquence}, pas seulement indépendante du fold.
+
+\section{Conclusion de la comparaison FLASH vs RSSFP}
+
+Sur ce baseline (U-Net 2D, méthodologie littérature-first, $k=3$), \textbf{aucune
+séquence ne se dégage comme supérieure à l'autre pour la segmentation}, y compris
+sur ASC/VSC où un avantage FLASH était attendu depuis l'EDA. Deux lectures possibles,
+non tranchées par ce baseline seul : (1) le contraste supplémentaire de FLASH sur
+ces structures n'apporte réellement rien à un réseau qui apprend déjà à les
+segmenter efficacement à partir du RSSFP, ou (2) le baseline (12 patients par
+séquence, un seul U-Net 2D simple) manque de puissance pour détecter un effet réel
+mais modeste. La question de recherche clinique du projet (dynamique vs statique,
+et implicitement FLASH vs RSSFP) reste donc ouverte à ce stade --- ce résultat
+alimente la discussion avec l'encadrant plutôt que de la clore, et sera à
+reconsidérer à la lumière des analyses d'interprétabilité (Phase 2 et suivantes) :
+si les deux modèles apprennent des représentations différentes malgré des Dice
+proches, cela nuancerait la lecture ``aucune différence'' de ce chapitre.
 
 \end{document}
