@@ -212,9 +212,9 @@ chaque run ajoute ses lignes patient$\times$structure à
 \chapter{Résultats}
 \label{chap:resultats}
 
-\todonote{2 runs restants (RSSFP fold 0, fold 2) avant de pouvoir faire la
-comparaison statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette
-section sera complétée à chaque run.}
+\todonote{1 run restant (RSSFP fold 0) avant de pouvoir faire la comparaison
+statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette section sera
+complétée à chaque run.}
 
 \section{FLASH, fold 0}
 
@@ -452,6 +452,52 @@ spécifique non couvert par cet échantillon restreint (4/160), pas d'un problè
 systématique visible à l'œil sur un cas typique --- identifier précisément la frame
 responsable nécessiterait d'inspecter le pire cas par structure directement, pas un
 tirage aléatoire.
+
+\section{RSSFP, fold 2}
+
+30 epochs, 9 patients train (360 frames) / 4 patients val (160 frames ---
+\texttt{2017-110 01-0236-V1MR}, \texttt{\_0237}, \texttt{\_0241}, \texttt{\_0242} ---
+mêmes patients de validation que FLASH fold 2). Meilleur checkpoint à l'epoch 28
+(Dice moyen structures = 0,7154). \textbf{Aucune anomalie de timing} (79--95s pour
+les 30 epochs) --- deuxième run RSSFP consécutif sans anomalie, alors que les 3 runs
+FLASH en avaient tous montré une à des degrés divers ; à noter sans sur-interpréter
+avec seulement 3 vs 2 runs de chaque côté.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,8267 & 0,7894 & 0,8784 & 4,64 & 0,8369 \\
+MSC  & 0,6961 & 0,7401 & 0,6938 & 4,71 & 0,7893 \\
+VSC  & 0,8760 & 0,8201 & 0,9487 & 2,95 & 0,9481 \\
+ASC  & 0,7988 & 0,8024 & 0,8227 & 3,43 & 0,9064 \\
+K1   & 0,3985 & 0,2792 & 0,7177 & 12,95 & 0,5586 \\
+PB   & 0,6966 & 0,7064 & 0,7182 & 9,22 & 0,7202 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold2_dice_curve.png}
+\end{center}
+
+\textbf{K1 confirmée structure la plus faible pour la septième fois sur sept
+configurations d'entraînement indépendantes} (pooled fold0/fold1, FLASH fold0/1/2,
+RSSFP fold1/2) --- Dice le plus bas de toute la série jusqu'ici (0,40), précision
+particulièrement faible (0,28, sur-segmentation marquée). Résultat maintenant établi
+sans aucune exception : la difficulté de K1 est structurelle (fragmentation en
+composantes connexes, EDA préliminaire), pas un artefact de fold, de séquence ou de
+méthodologie d'entraînement.
+
+HD95 sans anomalie ce fold (toutes les structures dans des plages déjà vues
+ailleurs) --- contraste avec RSSFP fold 1 (CLAV/VSC/ASC anormalement élevés) : les 4
+patients de validation de ce fold (\texttt{0236, 0237, 0241, 0242}) ne présentent
+pas le problème observé sur ceux du fold 1, cohérent avec l'hypothèse d'une frame ou
+d'un patient spécifique plutôt qu'un problème systématique du modèle RSSFP.
+
+Il reste \textbf{RSSFP fold 0} avant de pouvoir clore la série des 6 runs et lancer
+la comparaison statistique par patient.
 
 \chapter{Analyse statistique}
 
