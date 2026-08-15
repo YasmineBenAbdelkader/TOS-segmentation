@@ -212,9 +212,9 @@ chaque run ajoute ses lignes patient$\times$structure à
 \chapter{Résultats}
 \label{chap:resultats}
 
-\todonote{4 runs restants (FLASH fold 2, RSSFP fold 0--2) avant de pouvoir faire
-la comparaison statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette
-section sera complétée à chaque run.}
+\todonote{3 runs restants (RSSFP fold 0--2) avant de pouvoir faire la comparaison
+statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette section sera
+complétée à chaque run.}
 
 \section{FLASH, fold 0}
 
@@ -309,6 +309,96 @@ contre $\approx$75--120s pour les autres --- moins fréquente que sur le fold 0 
 epochs touchés), mais confirme que l'anomalie n'est pas éliminée par le retrait du
 crop, seulement atténuée en fréquence/sévérité. Un seul run FLASH restant (fold 2)
 avant de pouvoir statuer plus largement sur le pattern.
+
+\section{FLASH, fold 2}
+
+30 epochs, 9 patients train (340 frames) / 4 patients val (160 frames ---
+\texttt{2017-110 01-0236-V1MR}, \texttt{\_0237}, \texttt{\_0241}, \texttt{\_0242}).
+Meilleur checkpoint à l'epoch \textbf{30 (la dernière)} --- contrairement aux folds 0
+et 1 (meilleur epoch 26 et 25), le Dice de validation n'avait pas encore plateauté à
+la fin des 30 epochs sur ce fold : possible sous-entraînement relatif, à garder en
+tête en comparant ce fold aux deux autres (Dice moyen structures = 0,6791, le plus
+bas des 3 folds FLASH).
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,8534 & 0,8376 & 0,8717 & 4,22 & 0,8752 \\
+MSC  & 0,7114 & 0,7213 & 0,7248 & 8,02 & 0,7941 \\
+VSC  & 0,8303 & 0,7775 & 0,9132 & 2,43 & 0,9203 \\
+ASC  & 0,6522 & 0,5575 & 0,8101 & 9,87 & 0,7502 \\
+K1   & 0,4096 & 0,3008 & 0,6866 & 12,49 & 0,5717 \\
+PB   & 0,6173 & 0,5883 & 0,7329 & 11,38 & 0,6544 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold2_dice_curve.png}
+\end{center}
+
+\textbf{K1 confirmé structure la plus faible sur les 3 folds FLASH sans exception}
+(0,48 / 0,63 / 0,41) --- cinquième configuration d'entraînement indépendante au
+total (avec les 2 folds pooled de l'exploration préliminaire) où K1 termine
+dernière. C'est maintenant établi comme un résultat robuste au split, pas un
+artefact d'un fold particulier.
+
+\textbf{PB inhabituellement bas ce fold} (0,62, 2e plus faible après K1 --- contre
+0,69--0,78 sur les 2 folds précédents) --- à surveiller si ça se reproduit sur
+RSSFP, ou si c'est spécifique aux 4 patients de validation de ce fold.
+
+\subsection{Anomalie de timing majeure --- le crop n'est manifestement pas
+l'unique cause}
+
+\textbf{16 des 30 epochs ont pris un temps anormal, jusqu'à 7228s (>2h) pour un seul
+epoch --- surcoût total $\approx$12,2h sur ce run} (temps normal attendu pour ces 16
+epochs : 22 minutes ; temps réel : 12,6h). C'est \textbf{plus sévère que les pires cas
+observés dans l'exploration préliminaire} (runs de 12--13h, mais sur la configuration
+``sans aug + crop'' spécifiquement) --- ici, l'augmentation est active et le crop est
+totalement absent du pipeline, donc l'hypothèse ``le crop déclenche l'anomalie'',
+déjà affaiblie sur les folds 0--1 (\S précédentes), est désormais clairement
+insuffisante pour expliquer ce qui se passe : l'anomalie touche aussi une
+configuration sans crop du tout, avec une sévérité inédite.
+
+\textbf{Recommandation avant de lancer les 3 runs RSSFP restants} : vérifier l'état
+du système (Moniteur d'activité --- processus en arrière-plan, Time Machine, indexation
+Spotlight, limitation thermique) plutôt que de continuer à supposer que c'est lié à la
+configuration d'entraînement. Le pattern (epochs isolés très lents, progression
+loss/Dice non affectée pendant ces épisodes) reste cohérent avec une interférence
+externe plutôt qu'un bug du pipeline, mais l'ampleur croissante (fold0 : max
+455s ; fold1 : max 1537s sur 1 epoch ; fold2 : max 7228s sur 16 epochs) mérite
+d'être prise au sérieux avant d'engager $\sim$13h de plus par run RSSFP.
+
+\subsection{Synthèse FLASH (3 folds)}
+
+Moyenne simple sur les 3 folds (pas encore la comparaison statistique par patient,
+\S\ref{sec:protocole-cv} --- juste une vue d'ensemble descriptive une fois FLASH
+complet) :
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Structure & Dice fold 0 & Dice fold 1 & Dice fold 2 \\
+\midrule
+CLAV & 0,8199 & 0,8478 & 0,8534 \\
+MSC  & 0,7231 & 0,7103 & 0,7114 \\
+VSC  & 0,8043 & 0,8831 & 0,8303 \\
+ASC  & 0,6728 & 0,8309 & 0,6522 \\
+K1   & 0,4812 & 0,6256 & 0,4096 \\
+PB   & 0,6944 & 0,7796 & 0,6173 \\
+\midrule
+Moyenne & 0,7046 & 0,7796 & 0,6791 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Variabilité inter-fold notable (Dice moyen 0,68--0,78) --- cohérent avec ce qui avait
+déjà été observé sur le modèle pooled (exploration préliminaire) : avec 13 patients,
+la composition du fold de validation influence sensiblement le résultat. C'est
+précisément pour cette raison que la comparaison FLASH vs RSSFP se fera au niveau
+patient (\S\ref{sec:protocole-cv}), pas en comparant des moyennes de 3 folds.
 
 \chapter{Analyse statistique}
 
