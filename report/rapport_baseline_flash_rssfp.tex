@@ -640,4 +640,130 @@ reconsidérer à la lumière des analyses d'interprétabilité (Phase 2 et suiva
 si les deux modèles apprennent des représentations différentes malgré des Dice
 proches, cela nuancerait la lecture ``aucune différence'' de ce chapitre.
 
+\chapter{Phase 2 --- Boîte à outils XAI}
+\label{chap:xai}
+
+\section{Modèle et méthodologie}
+
+Boîte à outils construite et validée sur un seul modèle pour l'instant : \textbf{FLASH,
+fold 1} (meilleur Dice global, 0,7796, checkpoint \texttt{checkpoint\_FLASH\_fold1.pt}).
+Choix assumé (voir discussion de conception) : valider les outils sur un modèle de
+confiance avant d'étendre à d'autres checkpoints, pour ne pas mélanger deux inconnues
+(l'outil et le modèle) en cas de résultat surprenant.
+
+\textbf{Deux méthodes implémentées, sans ré-entraînement} (\texttt{src/xai.py}) :
+
+\begin{description}[style=nextline]
+    \item[Seg-Grad-CAM] Vinogradova, Dibrov \& Lopez (2020, \emph{arXiv:2002.11434}),
+        extension de Grad-CAM (Selvaraju et al. 2017) à la segmentation dense --
+        rétropropage depuis la somme des logits d'une structure sur sa région
+        prédite, pondère les activations de la dernière couche du décodeur
+        (\texttt{dec1}) par la moyenne spatiale du gradient. Méthode
+        \emph{gradient-based}.
+    \item[Occlusion] Zeiler \& Fergus (2014) -- couvre systématiquement l'image par
+        patchs (16px, pas 8px) avec une valeur neutre, mesure la chute du score de
+        la structure cible à chaque occlusion. Méthode \emph{perturbation-based},
+        indépendante du gradient -- sert de validation croisée pour Seg-Grad-CAM.
+\end{description}
+
+\textbf{MC Dropout reporté} (Gal \& Ghahramani 2016) : nécessite du dropout présent
+\emph{pendant l'entraînement} pour que l'interprétation bayésienne soit valide, ce
+que l'architecture actuelle (\texttt{src/model.py}) n'a pas -- demande d'ajouter des
+couches \texttt{Dropout2d} et de ré-entraîner. Reporté après validation des 2 premiers
+outils (voir discussion de conception : éviter de payer un ré-entraînement, coûteux
+et de durée imprévisible sur ce matériel, \S\ref{chap:resultats}, avant de savoir si
+l'approche XAI globale est solide).
+
+\section{Sanity check : test de randomisation en cascade}
+\label{sec:xai-sanity-check}
+
+Avant de faire confiance à Seg-Grad-CAM, test de randomisation en cascade (Adebayo
+et al. 2018, ``Sanity Checks for Saliency Maps'') : les poids du modèle sont
+réinitialisés progressivement, de la sortie vers l'entrée, et la carte de saillance
+est recalculée à chaque étape. Une explication fidèle au modèle doit se dégrader
+nettement dès les premières couches randomisées ; à l'inverse, Adebayo et al.
+montrent que Guided Backprop et Guided Grad-CAM produisent des cartes qui restent
+quasi identiques malgré la randomisation -- un signal qu'elles ne reflètent pas les
+poids appris.
+
+\begin{center}
+\includegraphics[width=0.7\textwidth]{figures/xai_sanity_check_K1.png}
+\end{center}
+
+\textbf{Seg-Grad-CAM passe le test sans ambiguïté} : la corrélation de Spearman avec
+la carte originale chute de 1,0 à $\approx$0,1--0,17 dès la première couche
+randomisée (\texttt{out\_conv}), pour K1 comme pour VSC (deuxième figure non
+incluse, même comportement). La carte ne reste jamais proche de 1 -- contrairement
+au comportement pathologique décrit par Adebayo et al. pour Guided Backprop/Guided
+Grad-CAM. \textbf{Conclusion} : la boîte à outils peut être utilisée pour
+l'interprétation qualitative qui suit, avec un niveau de confiance raisonnable
+qu'elle reflète réellement les poids appris, pas juste la structure de
+l'architecture ou du gradient d'entrée.
+
+\section{Résultats qualitatifs}
+
+\subsection{Occlusion : localisation cohérente et nette}
+
+\begin{center}
+\includegraphics[width=0.48\textwidth]{figures/xai_occlusion_sample0_K1.png}
+\includegraphics[width=0.48\textwidth]{figures/xai_occlusion_sample0_VSC.png}
+\end{center}
+
+Sur les 4 cartes d'occlusion générées (2 échantillons $\times$ K1/VSC), la zone de
+plus forte chute de score suit systématiquement et étroitement le contour réel de la
+structure, que ce soit une petite structure compacte (VSC) ou une structure fine et
+allongée (K1). Résultat rassurant et attendu : l'occlusion mesure directement l'effet
+causal de chaque région sur le score, indépendamment de la forme de la structure.
+
+\subsection{Seg-Grad-CAM : localisation variable d'une frame à l'autre pour une même
+structure}
+
+\begin{center}
+\includegraphics[width=0.32\textwidth]{figures/xai_seggradcam_sample0_K1.png}
+\includegraphics[width=0.32\textwidth]{figures/xai_seggradcam_sample2_K1.png}
+\includegraphics[width=0.32\textwidth]{figures/xai_seggradcam_sample1_MSC.png}
+\end{center}
+
+\textbf{Constat non anticipé, honnête à documenter tel quel} : contrairement à
+l'occlusion, la qualité de localisation de Seg-Grad-CAM \textbf{varie fortement
+d'une frame de validation à l'autre pour une même structure}, pas seulement d'une
+structure à l'autre. Sur K1, un échantillon donne une carte diffuse, étalée sur une
+grande partie de l'image (aucun pic net sur la structure) tandis qu'un autre donne
+une carte parfaitement localisée le long de la forme incurvée de K1 (figures
+ci-dessus, échantillons 0 et 2). MSC montre le même contraste selon l'échantillon.
+Les structures compactes et bien segmentées (CLAV, ASC, VSC) donnent en revanche des
+cartes nettes et ponctuelles de façon plus systématique sur les échantillons
+inspectés, mais pas exclusivement -- l'échantillon reste trop petit (4 images) pour
+trancher si ceci est un effet de structure, de frame, ou des deux.
+
+\textbf{Ce que ça ne remet pas en cause} : le sanity check (\S\ref{sec:xai-sanity-check})
+montre que ces cartes -- diffuses ou nettes -- reflètent bien les poids du modèle,
+pas un artefact indépendant de l'entraînement. La variabilité observée est donc un
+signal potentiellement réel sur le comportement du modèle, pas un doute sur la
+validité de l'outil lui-même.
+
+\textbf{Lien direct avec la Phase 3} (chapitre~\ref{chap:contexte}, plan en six
+phases) : cette observation qualitative, sur seulement 4 échantillons choisis au
+hasard, est exactement le type de phénomène que la cohérence temporelle des
+explications (Phase 3) est censée quantifier formellement -- la saillance
+dérive-t-elle en douceur d'une frame à l'autre comme l'anatomie réelle, ou de façon
+erratique ? Ce premier aperçu qualitatif, obtenu en marge de la validation des
+outils, en est un indice préliminaire, pas une mesure : \textbf{à quantifier
+proprement en Phase 3} (corrélation frame-à-frame des cartes de saillance sur la
+séquence dynamique complète), pas à généraliser à partir de 4 images.
+
+\section{Prochaines étapes}
+
+\begin{enumerate}[nosep]
+    \item Ajouter le dropout à \texttt{UNet2D} et ré-entraîner FLASH fold 1 pour
+        obtenir MC Dropout (cartes d'incertitude par pixel).
+    \item Une fois les 3 outils disponibles, étendre au modèle RSSFP (meilleur
+        checkpoint, fold 0) pour comparer l'interprétabilité entre les deux
+        séquences -- axe motivé par l'absence de différence de Dice trouvée
+        au chapitre précédent.
+    \item Phase 3 : quantifier la cohérence temporelle des explications sur la
+        séquence dynamique complète (pas seulement les 20 frames annotées), motivée
+        par l'observation qualitative ci-dessus.
+\end{enumerate}
+
 \end{document}

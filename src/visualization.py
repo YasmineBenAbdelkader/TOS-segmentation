@@ -181,6 +181,60 @@ def plot_qualitative(model, dataset, device, out_path, n_samples=4, seed=0):
     plt.close(fig)
 
 
+def plot_seggradcam(image, cam, gt_mask, pred_mask, structure_name, out_path):
+    """Superposition image / carte Seg-Grad-CAM (jet, semi-transparente) / contours
+    vérité terrain (vert) et prédiction (blanc pointillé) -- permet de juger d'un
+    coup d'œil si la zone de saillance coïncide avec la structure réelle ou prédite."""
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.imshow(image, cmap="gray")
+    ax.imshow(cam, cmap="jet", alpha=0.5, vmin=0, vmax=1)
+    if gt_mask is not None and gt_mask.any():
+        ax.contour(gt_mask, levels=[0.5], colors=["lime"], linewidths=1.5)
+    if pred_mask is not None and pred_mask.any():
+        ax.contour(pred_mask, levels=[0.5], colors=["white"], linewidths=1, linestyles="dashed")
+    ax.set_title(f"Seg-Grad-CAM — {structure_name}\n(vert : vérité terrain, blanc : prédiction)")
+    ax.axis("off")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
+def plot_occlusion(image, heatmap, gt_mask, structure_name, out_path):
+    """Carte de sensibilité par occlusion -- rouge = zone dont l'occlusion fait le
+    plus chuter le score de la structure, donc la plus "importante" pour le modèle
+    au sens de la perturbation (complémentaire au gradient de Seg-Grad-CAM)."""
+    fig, ax = plt.subplots(figsize=(5, 5))
+    ax.imshow(image, cmap="gray")
+    vmax = max(abs(heatmap.min()), abs(heatmap.max()), 1e-8)
+    im = ax.imshow(heatmap, cmap="coolwarm", alpha=0.6, vmin=-vmax, vmax=vmax)
+    if gt_mask is not None and gt_mask.any():
+        ax.contour(gt_mask, levels=[0.5], colors=["lime"], linewidths=1.5)
+    ax.set_title(f"Sensibilité par occlusion — {structure_name}")
+    ax.axis("off")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="Chute du score")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
+def plot_sanity_check(correlations, structure_name, out_path):
+    """Courbe corrélation de Spearman vs étape de randomisation en cascade (Adebayo
+    et al. 2018) -- une chute rapide vers 0 est le signe attendu d'une explication
+    fidèle au modèle ; une courbe qui reste haute signale un outil à ne pas
+    utiliser tel quel (voir chapitre Méthodologie XAI)."""
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(range(len(correlations)), correlations, marker="o", color="steelblue")
+    ax.axhline(0, color="gray", linestyle="--", linewidth=1)
+    ax.set_xlabel("Étape de randomisation en cascade (0 = modèle intact)")
+    ax.set_ylabel("Corrélation de Spearman avec la carte originale")
+    ax.set_ylim(-0.15, 1.05)
+    ax.set_title(f"Test de randomisation (Adebayo et al. 2018) — {structure_name}")
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
 def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, tag):
     """tag : préfixe complet des fichiers générés (ex. 'baseline_FLASH_fold0'), pas
     seulement un numéro de fold — permet de distinguer les runs par séquence/modèle
