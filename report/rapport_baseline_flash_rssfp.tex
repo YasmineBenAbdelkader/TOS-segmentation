@@ -212,9 +212,9 @@ chaque run ajoute ses lignes patient$\times$structure à
 \chapter{Résultats}
 \label{chap:resultats}
 
-\todonote{3 runs restants (RSSFP fold 0--2) avant de pouvoir faire la comparaison
-statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette section sera
-complétée à chaque run.}
+\todonote{2 runs restants (RSSFP fold 0, fold 2) avant de pouvoir faire la
+comparaison statistique appariée par patient (\S\ref{sec:protocole-cv}). Cette
+section sera complétée à chaque run.}
 
 \section{FLASH, fold 0}
 
@@ -399,6 +399,59 @@ déjà été observé sur le modèle pooled (exploration préliminaire) : avec 1
 la composition du fold de validation influence sensiblement le résultat. C'est
 précisément pour cette raison que la comparaison FLASH vs RSSFP se fera au niveau
 patient (\S\ref{sec:protocole-cv}), pas en comparant des moyennes de 3 folds.
+
+\section{RSSFP, fold 1}
+
+30 epochs, 9 patients train (360 frames) / 4 patients val (160 frames ---
+\texttt{2017-110 01-0230-V1MR}, \texttt{\_0231}, \texttt{\_0240}, \texttt{\_0228} ---
+mêmes patients de validation que FLASH fold 1, comparaison directe possible sur ce
+fold précis). Meilleur checkpoint à l'epoch 25 (Dice moyen structures = 0,6969).
+\textbf{Aucune anomalie de timing sur ce run} (77--87s pour les 30 epochs, sans
+exception) --- confirme que l'anomalie observée sur les runs FLASH n'est pas
+systématique, cohérent avec une cause environnementale plutôt qu'un problème
+déterministe du pipeline.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Structure & Dice & Précision & Rappel & Hausdorff-95 (px) & NSD \\
+\midrule
+CLAV & 0,8193 & 0,7801 & 0,8715 & 18,54 & 0,8366 \\
+MSC  & 0,6574 & 0,6509 & 0,6864 & 6,80 & 0,7300 \\
+VSC  & 0,8551 & 0,7911 & 0,9463 & 16,52 & 0,9268 \\
+ASC  & 0,6774 & 0,6375 & 0,7585 & 24,31 & 0,7927 \\
+K1   & 0,5161 & 0,4394 & 0,6744 & 10,87 & 0,6830 \\
+PB   & 0,6560 & 0,6296 & 0,7612 & 12,82 & 0,6854 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold1_dice_curve.png}
+\end{center}
+
+\textbf{K1 encore la structure la plus faible} (0,52) --- sixième configuration
+d'entraînement indépendante sur six (pooled fold0/fold1, FLASH fold0/1/2, RSSFP
+fold1) où K1 termine dernière ou quasi dernière ; ici l'écart avec MSC/PB (0,66) est
+toutefois plus resserré que sur les folds FLASH, où K1 décrochait plus nettement.
+
+\textbf{Anomalie notable, à vérifier en priorité} : \textbf{CLAV, VSC et ASC ont
+simultanément un Hausdorff-95 très élevé} (18,54 / 16,52 / 24,31px) malgré des Dice
+raisonnables à bons (0,82 / 0,86 / 0,68) --- très inhabituel par rapport aux runs
+précédents, où VSC et ASC avaient plutôt les HD95 les plus \emph{bas} des 6
+structures (ex. VSC : 1,8--4,7px, ASC : 1,9--9,9px sur les 3 folds FLASH). Trois
+structures touchées en même temps sur le même fold suggère un phénomène localisé à
+un patient ou une frame de validation spécifique (un faux positif isolé loin de la
+structure, comme déjà documenté pour CLAV en \S FLASH fold 1) plutôt que trois
+incidents indépendants. \textbf{Vérifié sur la figure qualitative}
+(\texttt{baseline\_RSSFP\_fold1\_qualitative.png}, 4 échantillons aléatoires sur les
+160 frames de validation) : \textbf{aucun faux positif isolé visible} sur ces 4
+échantillons -- les prédictions collent bien à la vérité terrain partout où elles
+sont montrées. L'anomalie vient donc probablement d'une frame ou d'un patient
+spécifique non couvert par cet échantillon restreint (4/160), pas d'un problème
+systématique visible à l'œil sur un cas typique --- identifier précisément la frame
+responsable nécessiterait d'inspecter le pire cas par structure directement, pas un
+tirage aléatoire.
 
 \chapter{Analyse statistique}
 
