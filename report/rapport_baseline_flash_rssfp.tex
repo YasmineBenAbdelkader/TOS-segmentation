@@ -1024,7 +1024,22 @@ annotation).
 Pilote exécuté sur \texttt{2017-110 01-0230-V1MR, FLASH D} (patient de validation
 FLASH fold 1, déjà utilisé en Phase 2), modèle FLASH fold 1 (plain et dropout).
 
-\section{Résultat pilote (20 frames -- à refaire avec la séquence complète)}
+\section{Résultat pilote (20 frames) : ce qu'il a appris, avant d'être remplacé}
+
+Le pilote initial (20 frames, même patient) a suggéré une coïncidence isolée entre
+un pic d'incertitude et une valeur basse de distance CLAV--K1, et une cohérence
+temporelle de Seg-Grad-CAM correcte mais assez variable (moyenne 0,712, minimum
+0,430). \textbf{Les résultats ci-dessous, sur la séquence complète, remplacent ces
+chiffres} -- gardés en mémoire (\S\ref{sec:phase3-limite}) uniquement parce que leur
+écart avec le résultat final est lui-même instructif sur l'effet du
+sous-échantillonnage (\S suivante).
+
+\section{Résultat sur la séquence complète (300 frames)}
+
+Séquence complète récupérée et intégrée (\texttt{big\_dataset/}, jamais commité sur
+git -- données patients). Même patient/série pilote
+(\texttt{2017-110 01-0230-V1MR, FLASH D}), mêmes modèles (FLASH fold 1, plain et
+dropout), \texttt{scripts/run\_phase3\_temporal.py --data-root big\_dataset}.
 
 \begin{center}
 \includegraphics[width=0.85\textwidth]{figures/phase3_FLASH_2017-110_01-0230-V1MR_FLASHD_dashboard.png}
@@ -1035,39 +1050,63 @@ FLASH fold 1, déjà utilisé en Phase 2), modèle FLASH fold 1 (plain et dropou
 \toprule
 Métrique & Valeur \\
 \midrule
-Distance CLAV--K1 (min / moy / max, px$\approx$mm) & 9,2 / 11,3 / 13,9 \\
-Entropie moyenne (min / max) & 0,0059 (0,0052 / 0,0075) \\
-Cohérence temporelle Seg-Grad-CAM (moyenne / min) & 0,712 / 0,430 \\
+Distance CLAV--K1 (min / moy / max, px$\approx$mm) & 7,8 / 11,0 / 13,9 \\
+Entropie moyenne (min / max) & 0,0059 (0,0051 / 0,0076) \\
+Cohérence temporelle Seg-Grad-CAM (moyenne / min) & \textbf{0,942} / \textbf{0,784} \\
+Corrélation incertitude $\leftrightarrow$ distance CLAV--K1 (Spearman, $n=300$) &
+    $\rho=-0{,}1801$, $p=1{,}7\times10^{-3}$ \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{Observation qualitative, à confirmer, pas à généraliser} : le pic
-d'incertitude le plus net (frame 9, entropie 0,0075) coïncide approximativement
-avec l'une des deux valeurs les plus basses de la distance CLAV--K1 (frame 9,
-9,2px -- proche du minimum de la courbe) -- cohérent avec l'hypothèse clinique que
-les instants de compression maximale sont aussi les plus ambigus pour le modèle.
-\textbf{Mais} : avec seulement 20 points, sans certitude que ces frames couvrent un
-mouvement continu réel (on ne sait pas si elles sont consécutives depuis le début
-de l'acquisition ou réparties sur l'ensemble du mouvement, \S\ref{sec:phase3-limite}),
-cette coïncidence unique ne constitue pas une preuve -- juste une piste qui
-justifie de refaire l'analyse sur la séquence complète.
+\textbf{1. La courbe de compression capture un vrai mouvement cyclique} (panneau du
+haut) : la distance CLAV--K1 oscille entre $\approx$8,5px et $\approx$13-14px sur
+plusieurs cycles nets répartis sur les 300 frames -- cohérent avec un protocole
+d'acquisition où le mouvement du bras est répété plusieurs fois, pas un artefact.
+Première confirmation, indirecte mais concrète, que les prédictions du modèle
+restent anatomiquement sensées sur des frames jamais vues à l'entraînement (aucune
+des 300 n'a de vérité terrain).
 
-\textbf{Cohérence temporelle de Seg-Grad-CAM restée positive sur toutes les paires
-de frames} (0,43 à 0,85, jamais proche de 0 ni négative) -- signal rassurant sur ce
-pilote : pas de saillance erratique détectée. À confirmer sur ~300 frames, où de
-vrais mouvements amples (variation d'abduction du bras) pourraient révéler des
-transitions plus marquées que sur ces 20 frames à distance de compression déjà
-relativement stable (9-14px, pas d'écart extrême).
+\textbf{2. La cohérence temporelle de Seg-Grad-CAM est quasi parfaite}
+($\rho$ moyen 0,942, jamais sous 0,784) -- \textbf{nettement supérieure} au résultat
+du pilote (0,712 / 0,430). \textbf{Interprétation} : l'écart entre les deux runs
+n'est pas une amélioration du modèle (même checkpoint) mais un \textbf{effet de
+résolution temporelle} -- avec seulement 20 frames espacées, deux frames
+``consécutives'' peuvent correspondre à un déplacement anatomique important,
+donnant une fausse impression de saillance ``erratique'' ; avec 300 frames, l'écart
+anatomique entre deux frames consécutives est faible, et la saillance le suit
+naturellement de façon lisse. \textbf{Conclusion pour la question de recherche
+posée en Phase 2} (\S\ref{sec:seggradcam-variabilite}) : Seg-Grad-CAM ne produit
+\emph{pas} d'explications erratiques sur ce modèle -- la variabilité observée en
+Phase 2 était un artefact du sous-échantillonnage à 20 frames, pas un défaut de
+l'outil ou du modèle.
+
+\textbf{3. Corrélation incertitude/compression : réelle mais modeste, pas
+spectaculaire.} $\rho=-0{,}18$ est un effet \textbf{faible} en taille (moins de 4\%
+de variance partagée), mais \textbf{statistiquement significatif}
+($p=1{,}7\times10^{-3}$) grâce à $n=300$ -- avec seulement 20 points (pilote), un
+effet de cette taille n'aurait presque aucune chance d'être détecté, ce qui explique
+pourquoi le pilote ne montrait qu'une coïncidence anecdotique sur un seul point.
+\textbf{Lecture honnête} : le modèle est un peu plus incertain quand K1 et CLAV se
+rapprochent (compression), dans le sens attendu cliniquement, mais ce n'est pas
+l'effet dominant sur son incertitude -- d'autres facteurs (qualité d'image locale,
+bruit, position du bras) y contribuent probablement plus.
 
 \section{Prochaine étape}
 
-Dès que la séquence complète est disponible pour au moins ce patient pilote,
-relancer \texttt{scripts/run\_phase3\_temporal.py} tel quel et comparer les 3
-courbes sur les $\approx$300 frames aux résultats pilotes ci-dessus -- en
-particulier vérifier si la cohérence temporelle de Seg-Grad-CAM reste aussi stable
-sur un mouvement bien plus ample, et si la corrélation incertitude/compression
-suggérée ici se confirme statistiquement (largement impossible avec $n=20$, plus
-crédible avec $n\approx300$).
+\begin{enumerate}[nosep]
+    \item Étendre l'analyse à d'autres patients/séries (actuellement un seul,
+        FLASH fold 1) pour vérifier si la corrélation incertitude/compression
+        ($\rho=-0{,}18$) et la cohérence temporelle ($\approx$0,94) se reproduisent,
+        avant de les présenter comme des résultats généraux du modèle.
+    \item La sous-analyse ``distance à la frame annotée la plus proche''
+        (\S\ref{sec:phase3-limite}) reste à faire : nécessite d'abord de retrouver,
+        parmi les 300 frames, lesquelles correspondent aux 20 frames annotées
+        utilisées à l'entraînement (recalage géométrique, même logique que
+        \texttt{build\_frame\_to\_k} en Phase 0) -- pas encore fait.
+    \item Étendre à RSSFP (même patient) pour voir si la cohérence temporelle et la
+        corrélation incertitude/compression sont aussi similaires entre séquences
+        qu'elles l'étaient en Phase 2 (Dice, MC Dropout).
+\end{enumerate}
 
 \end{document}

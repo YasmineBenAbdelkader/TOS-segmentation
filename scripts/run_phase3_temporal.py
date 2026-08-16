@@ -14,7 +14,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
+import pandas as pd
 import torch
+from scipy.stats import spearmanr
 
 from src.metrics import STRUCTURE_NAMES
 from src.model import UNet2D
@@ -45,12 +47,15 @@ def main():
     parser.add_argument("--sequence", type=str, default="FLASH", choices=["FLASH", "RSSFP"])
     parser.add_argument("--fold", type=int, default=1)
     parser.add_argument("--k1-class", type=int, default=5)
+    parser.add_argument("--data-root", type=str, default=str(DATA),
+                         help="Racine des données DICOM brutes -- DATA/ (20 frames, défaut) ou "
+                              "big_dataset/ (séquence complète, une fois récupérée)")
     args = parser.parse_args()
 
     device = get_device()
     print(f"Device: {device}")
 
-    series_dir = DATA / args.patient / args.serie
+    series_dir = Path(args.data_root) / args.patient / args.serie
     print(f"Chargement de {series_dir}...")
     image, instance_numbers = load_full_sequence(series_dir)
     n_frames = image.shape[-1]
@@ -104,6 +109,13 @@ def main():
                            title_suffix=f" -- {args.patient}, {args.serie}")
     print(f"\nFigure sauvegardée : {out_path}")
 
+    csv_path = OUT_DIR / f"{tag}_per_frame.csv"
+    per_frame_df = pd.DataFrame({
+        "instance_number": instance_numbers, "distance_clav_k1": distances, "entropy": entropies,
+    })
+    per_frame_df.to_csv(csv_path, index=False)
+    print(f"Données par frame sauvegardées : {csv_path}")
+
     print("\n=== Résumé ===")
     print(f"Distance costoclaviculaire : min={np.nanmin(distances):.1f}px, "
           f"max={np.nanmax(distances):.1f}px, moyenne={np.nanmean(distances):.1f}px")
@@ -113,6 +125,13 @@ def main():
     if len(valid_consistency):
         print(f"Cohérence temporelle Seg-Grad-CAM (Spearman frame-à-frame) : "
               f"moyenne={valid_consistency.mean():.3f}, min={valid_consistency.min():.3f}")
+
+    valid = ~np.isnan(distances)
+    if valid.sum() > 2:
+        rho, pval = spearmanr(distances[valid], entropies[valid])
+        print(f"\nCorrélation incertitude / distance CLAV-K1 (Spearman, n={valid.sum()}) : "
+              f"rho={rho:.4f}, p={pval:.2e}")
+        print("  (rho < 0 : l'incertitude monte quand la distance baisse, i.e. en cas de compression)")
 
 
 if __name__ == "__main__":
