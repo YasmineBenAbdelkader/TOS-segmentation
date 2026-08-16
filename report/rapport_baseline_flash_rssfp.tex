@@ -203,8 +203,8 @@ chaque run ajoute ses lignes patient$\times$structure à
 \section{Commande}
 
 \begin{center}
-\texttt{python scripts/train\_baseline.py --sequence \{FLASH,RSSFP\} --fold \{0,1,2\}
---epochs 30}
+\texttt{python scripts/train\_baseline.py -{}-sequence \{FLASH,RSSFP\} -{}-fold \{0,1,2\}
+-{}-epochs 30}
 \end{center}
 
 6 runs au total (2 séquences $\times$ 3 folds).
@@ -261,6 +261,21 @@ runs de 12--13h observés sur ``sans aug + crop'' dans l'exploration préliminai
 absente. Le crop n'était donc pas l'unique cause -- à surveiller sur les 5 runs
 restants avant de conclure quoi que ce soit sur l'origine exacte.
 
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold0_qualitative.png}
+\end{center}
+
+\textbf{Lecture de cette figure} (même format pour tous les runs de ce chapitre) :
+4 échantillons de validation tirés au hasard, une ligne par échantillon, 3 colonnes
+--- image IRM brute, contours de la vérité terrain, contours de la prédiction du
+modèle. Chaque structure a une couleur fixe, identique dans les colonnes ``vérité
+terrain'' et ``prédiction'' (pas de superposition directe des deux, comparaison
+visuelle colonne à colonne). Sur cet échantillon fold 0 : les contours prédits
+suivent globalement bien la forme et la position des contours réels pour la plupart
+des structures, cohérent avec les Dice $>$0,65 du tableau ci-dessus ; K1 (Dice le
+plus bas) est la structure où l'écart forme prédite/réelle est le plus visible à
+l'œil, cohérent avec sa fragmentation déjà documentée.
+
 \section{FLASH, fold 1}
 
 30 epochs, 9 patients train (340 frames) / 4 patients val (160 frames ---
@@ -309,6 +324,15 @@ epochs touchés), mais confirme que l'anomalie n'est pas éliminée par le retra
 crop, seulement atténuée en fréquence/sévérité. Un seul run FLASH restant (fold 2)
 avant de pouvoir statuer plus largement sur le pattern.
 
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold1_qualitative.png}
+\end{center}
+
+Même format que fold 0 (\S précédente). Le faux positif isolé responsable du HD95
+anormal de CLAV (\S précédente) n'apparaît pas forcément sur ces 4 échantillons
+tirés au hasard -- avec 160 frames de validation sur ce fold, un seul cas
+problématique a peu de chances de tomber dans un tirage de 4.
+
 \section{FLASH, fold 2}
 
 30 epochs, 9 patients train (340 frames) / 4 patients val (160 frames ---
@@ -347,6 +371,15 @@ artefact d'un fold particulier.
 \textbf{PB inhabituellement bas ce fold} (0,62, 2e plus faible après K1 --- contre
 0,69--0,78 sur les 2 folds précédents) --- à surveiller si ça se reproduit sur
 RSSFP, ou si c'est spécifique aux 4 patients de validation de ce fold.
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_FLASH_fold2_qualitative.png}
+\end{center}
+
+Même format que les folds précédents. Fold le plus faible en Dice moyen des 3
+(0,68) -- si des erreurs de forme plus visibles qu'aux folds 0--1 apparaissent sur
+ces 4 échantillons, elles sont cohérentes avec ce score moyen plus bas, pas
+surprenantes.
 
 \subsection{Anomalie de timing majeure --- le crop n'est manifestement pas
 l'unique cause}
@@ -452,6 +485,14 @@ systématique visible à l'œil sur un cas typique --- identifier précisément 
 responsable nécessiterait d'inspecter le pire cas par structure directement, pas un
 tirage aléatoire.
 
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold1_qualitative.png}
+\end{center}
+
+Même format que les runs FLASH (\S FLASH fold 0). Cohérent avec le constat
+ci-dessus : les 4 échantillons ne montrent pas de faux positif isolé évident,
+malgré le HD95 anormal mesuré sur l'ensemble du fold.
+
 \section{RSSFP, fold 2}
 
 30 epochs, 9 patients train (360 frames) / 4 patients val (160 frames ---
@@ -495,6 +536,14 @@ patients de validation de ce fold (\texttt{0236, 0237, 0241, 0242}) ne présente
 pas le problème observé sur ceux du fold 1, cohérent avec l'hypothèse d'une frame ou
 d'un patient spécifique plutôt qu'un problème systématique du modèle RSSFP.
 
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold2_qualitative.png}
+\end{center}
+
+Même format que les runs précédents. K1 (Dice 0,40, le plus bas de toute la série)
+est de nouveau la structure où l'écart forme prédite/réelle se voit le plus
+facilement à l'œil sur ces échantillons.
+
 Il reste \textbf{RSSFP fold 0} avant de pouvoir clore la série des 6 runs et lancer
 la comparaison statistique par patient.
 
@@ -529,6 +578,13 @@ PB   & 0,6866 & 0,6685 & 0,7867 & 8,93 & 0,6933 \\
 \textbf{K1 confirmée dernière pour la huitième fois sur huit configurations
 d'entraînement indépendantes, sans exception} --- résultat désormais entièrement
 non ambigu. HD95 sans anomalie ce fold (comme fold 2, contrairement à fold 1).
+
+\begin{center}
+\includegraphics[width=0.75\textwidth]{figures/baseline_RSSFP_fold0_qualitative.png}
+\end{center}
+
+Même format que les runs précédents -- dernier des 6 runs baseline (Phase 1
+terminée à ce stade).
 
 \section{Synthèse RSSFP (3 folds)}
 
@@ -1039,7 +1095,7 @@ sous-échantillonnage (\S suivante).
 Séquence complète récupérée et intégrée (\texttt{big\_dataset/}, jamais commité sur
 git -- données patients). Même patient/série pilote
 (\texttt{2017-110 01-0230-V1MR, FLASH D}), mêmes modèles (FLASH fold 1, plain et
-dropout), \texttt{scripts/run\_phase3\_temporal.py --data-root big\_dataset}.
+dropout), \texttt{scripts/run\_phase3\_temporal.py -{}-data-root big\_dataset}.
 
 \begin{center}
 \includegraphics[width=0.85\textwidth]{figures/phase3_FLASH_2017-110_01-0230-V1MR_FLASHD_dashboard.png}
@@ -1112,6 +1168,16 @@ Corrélation incertitude $\leftrightarrow$ distance ($\rho$, $n=300$) &
 \bottomrule
 \end{tabular}
 \end{center}
+
+\begin{center}
+\includegraphics[width=0.85\textwidth]{figures/phase3_FLASH_2017-110_01-0230-V1MR_FLASHG_dashboard.png}
+\end{center}
+
+Même format que le tableau de bord FLASH D (\S précédente) -- comparer les deux
+figures visuellement confirme le tableau ci-dessus : cohérence temporelle
+(panneau du bas) tout aussi stable sur les deux côtés, mais la relation visuelle
+entre les panneaux distance/incertitude (haut/milieu) ne suit pas le même sens
+d'une figure à l'autre.
 
 \textbf{La cohérence temporelle de Seg-Grad-CAM se reproduit très bien}
 (0,928 vs 0,942, écart minime) -- premier signe que ce résultat est robuste, pas

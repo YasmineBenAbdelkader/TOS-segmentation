@@ -25,4 +25,10 @@ __pycache__/
 .DS_Store
 .vscode/
 
+# LaTeX build artifacts (keep the .tex source and the compiled .pdf, not these)
+*.aux
+*.log
+*.out
+*.toc
+
 # Jupyter large outputs (optional, keep if you want notebooks versioned as-is)
