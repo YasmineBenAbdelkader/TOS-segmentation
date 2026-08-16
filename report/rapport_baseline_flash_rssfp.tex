@@ -1092,13 +1092,59 @@ rapprochent (compression), dans le sens attendu cliniquement, mais ce n'est pas
 l'effet dominant sur son incertitude -- d'autres facteurs (qualité d'image locale,
 bruit, position du bras) y contribuent probablement plus.
 
+\section{Deuxième série, même patient (FLASH G) : la cohérence temporelle se
+reproduit, la corrélation incertitude/compression change de signe}
+\label{sec:phase3-flash-g}
+
+Même patient (\texttt{2017-110 01-0230-V1MR}), \textbf{côté opposé}
+(\texttt{FLASH G} au lieu de \texttt{FLASH D}), même modèle.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Métrique & FLASH D & FLASH G \\
+\midrule
+Distance CLAV--K1 (min / moy / max, px) & 7,8 / 11,0 / 13,9 & 8,5 / 10,1 / 12,0 \\
+Entropie moyenne (min / max) & 0,0059 (0,0051 / 0,0076) & 0,0064 (0,0054 / 0,0083) \\
+Cohérence temporelle Seg-Grad-CAM (moy. / min) & 0,942 / 0,784 & 0,928 / 0,827 \\
+Corrélation incertitude $\leftrightarrow$ distance ($\rho$, $n=300$) &
+    $-0{,}1801$ ($p=1{,}7\times10^{-3}$) & $+0{,}2231$ ($p=9{,}7\times10^{-5}$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{La cohérence temporelle de Seg-Grad-CAM se reproduit très bien}
+(0,928 vs 0,942, écart minime) -- premier signe que ce résultat est robuste, pas
+spécifique à une série.
+
+\textbf{La corrélation incertitude/compression, en revanche, change de signe} entre
+les deux côtés du \emph{même} patient : négative sur D ($\rho=-0{,}18$, incertitude
+qui monte en cas de compression, sens attendu cliniquement), \textbf{positive sur G}
+($\rho=+0{,}22$, incertitude qui monte quand la structure se
+\emph{décomprime}) -- les deux significatives statistiquement ($p<0{,}01$), mais
+dans des sens opposés. \textbf{Ce n'est pas un accident isolé} : c'est exactement le
+même type de signal instable déjà rencontré en Phase 1 avec l'effet de
+l'augmentation, qui changeait de signe entre fold 0 et fold 1
+(\S\ref{sec:phase1-aug-signe} de l'exploration préliminaire) -- un effet de petite
+taille peut apparaître significatif sur un échantillon donné ($n=300$ frames ici)
+sans être un effet stable ou généralisable.
+
+\textbf{Conclusion révisée, plus prudente que la lecture précédente} : la
+corrélation incertitude/compression trouvée sur FLASH D \textbf{ne doit pas être
+présentée comme un résultat établi} -- elle ne survit pas au changement de côté
+chez le même patient. La cohérence temporelle de Seg-Grad-CAM, elle, reste le
+résultat le plus solide de ce chapitre à ce stade (reproduit à l'identique sur 2
+séries indépendantes).
+
 \section{Prochaine étape}
 
 \begin{enumerate}[nosep]
-    \item Étendre l'analyse à d'autres patients/séries (actuellement un seul,
-        FLASH fold 1) pour vérifier si la corrélation incertitude/compression
-        ($\rho=-0{,}18$) et la cohérence temporelle ($\approx$0,94) se reproduisent,
-        avant de les présenter comme des résultats généraux du modèle.
+    \item \textbf{Priorité révisée après \S\ref{sec:phase3-flash-g}} : étendre
+        l'analyse à d'autres patients (2 séries d'un seul patient ne suffisent pas
+        à trancher) pour voir si le signe de la corrélation incertitude/compression
+        est spécifique à chaque série (D/G, comme suggéré ici) ou vraiment
+        instable/non généralisable -- et confirmer que la cohérence temporelle
+        ($\approx$0,93--0,94) continue de se reproduire, elle.
     \item La sous-analyse ``distance à la frame annotée la plus proche''
         (\S\ref{sec:phase3-limite}) reste à faire : nécessite d'abord de retrouver,
         parmi les 300 frames, lesquelles correspondent aux 20 frames annotées
