@@ -807,6 +807,12 @@ checkpoint séparé \texttt{checkpoint\_FLASH\_fold1\_dropout.pt}, jamais mélan
 6 checkpoints du baseline Phase 1) -- \textbf{Dice 0,7842, légèrement supérieur} au
 même run sans dropout (0,7796) : cohérent avec Kendall et al., qui rapportent que la
 régularisation bayésienne n'abîme pas la performance et peut l'améliorer légèrement.
+\textbf{Même ré-entraînement fait pour RSSFP fold 0} : Dice 0,7177 avec dropout
+contre 0,7207 sans -- ici quasiment inchangé (écart de 0,003, dans le bruit), pas
+d'amélioration comme sur FLASH mais pas de dégradation notable non plus. Les deux
+runs confirment ensemble que le dropout choisi ($p=0{,}2$, couches centrales
+uniquement) ne compromet la performance sur aucune des deux séquences, condition
+nécessaire avant d'utiliser MC Dropout pour l'interprétation.
 30 passes avant par prédiction (\texttt{src/xai.py}, \texttt{mc\_dropout\_predict})
 -- compromis avec les 50 passes de Kendall et al., pour limiter le coût sur ce
 matériel (anomalies de temps déjà documentées). Incertitude résumée par
