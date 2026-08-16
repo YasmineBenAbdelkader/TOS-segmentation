@@ -1211,23 +1211,99 @@ inter-patient déjà bien documentée dans ce projet (EDA, Phase 1), cohérente 
 échantillon de 13 patients trop petit pour couvrir toute la variabilité clinique
 réelle.
 
+\section{Cinquième série (0228, FLASH D) : la tendance de la section précédente ne
+tient pas -- correction}
+\label{sec:phase3-synthese-5}
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Métrique & 0230 D & 0230 G & 0231 D & 0240 D & 0228 D \\
+\midrule
+Distance CLAV--K1 (min/moy/max, px) & 7,8/11,0/13,9 & 8,5/10,1/12,0 &
+    3,0/11,8/13,0 & 11,7/15,7/18,6 & 10,0/17,0/29,1 \\
+Entropie moyenne & 0,0059 & 0,0064 & 0,0057 & 0,0068 & \textbf{0,0135} \\
+Cohérence temporelle (moy./min) & 0,942/0,784 & 0,928/0,827 & 0,970/0,922 &
+    0,933/0,807 & 0,955/0,831 \\
+Corrélation incertitude$\leftrightarrow$distance ($\rho$) & $-0{,}1801$ &
+    $+0{,}2231$ & $+0{,}2165$ & $+0{,}4836$ & $-0{,}3553$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Correction assumée par rapport à la section précédente} : avec 4 séries, 3
+positives sur 4 laissaient penser à une tendance (incertitude qui monte avec la
+\emph{décompression}, pas la compression). \textbf{Cette cinquième série la
+contredit} ($\rho=-0{,}3553$, négatif et assez marqué) -- la majorité n'est plus que
+3 positives sur 5, plus proche d'un partage à peu près égal que d'une tendance
+franche. \textbf{Leçon methodologique à retenir pour la suite de la thèse} : une
+majorité de 3/4 n'était pas encore assez de données pour parler de tendance, malgré
+la tentation de le faire -- exactement le type d'erreur que ce projet a déjà
+rencontré et corrigé en Phase 1 (effet de l'augmentation) et qu'il faut continuer à
+éviter systématiquement.
+
+\textbf{Synthèse quantitative sur les 5 séries} (moyenne $\pm$ écart-type
+inter-série) :
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Métrique & Moyenne $\pm$ écart-type (n=5) \\
+\midrule
+Cohérence temporelle Seg-Grad-CAM & $0{,}9456 \pm 0{,}0171$ \\
+Corrélation incertitude$\leftrightarrow$distance ($\rho$) & $0{,}078 \pm 0{,}339$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Cohérence temporelle} : résultat \textbf{solide et établi} -- 0,946
+$\pm$ 0,017, un écart-type minuscule par rapport à la moyenne sur 5 séries de 3
+patients différents. C'est la conclusion la plus robuste de ce chapitre : Seg-Grad-CAM
+produit des explications spatialement cohérentes d'une frame à l'autre sur la
+séquence dynamique réelle, pas seulement sur le cas pilote.
+
+\textbf{Corrélation incertitude/compression} : \textbf{pas un résultat
+généralisable en l'état} -- moyenne proche de 0 (0,078) avec un écart-type
+(0,339) supérieur à la moyenne elle-même : le signe et l'amplitude varient trop
+d'une série à l'autre pour affirmer quoi que ce soit de directionnel. Chaque
+corrélation individuelle est statistiquement significative sur ses 300 frames
+(petits effets, mais $p$ très bas grâce à $n=300$), mais \textbf{la significativité
+intra-série ne garantit pas la généralisabilité inter-série} -- distinction
+méthodologique importante, déjà rencontrée sous une autre forme en Phase 1
+(\S\ref{sec:protocole-cv}, pourquoi comparer par patient plutôt que par fold).
+
+\textbf{Point annexe} : entropie moyenne de ce patient (0,0135) environ le double
+des 4 autres séries (0,0057--0,0068) -- à vérifier si c'est un vrai signal clinique
+(cas plus ambigu) ou une qualité d'image particulière à ce patient, avant
+d'interpréter quoi que ce soit d'autre chez lui.
+
 \section{Prochaine étape}
 
+\textbf{État après 5 séries (3 patients, FLASH uniquement)} : la cohérence
+temporelle de Seg-Grad-CAM est établie ($0{,}946\pm0{,}017$) ; la corrélation
+incertitude/compression ne l'est pas ($0{,}078\pm0{,}339$, signe imprévisible) --
+voir synthèse \S\ref{sec:phase3-synthese-5}.
+
 \begin{enumerate}[nosep]
-    \item \textbf{Priorité révisée après \S\ref{sec:phase3-flash-g}} : étendre
-        l'analyse à d'autres patients (2 séries d'un seul patient ne suffisent pas
-        à trancher) pour voir si le signe de la corrélation incertitude/compression
-        est spécifique à chaque série (D/G, comme suggéré ici) ou vraiment
-        instable/non généralisable -- et confirmer que la cohérence temporelle
-        ($\approx$0,93--0,94) continue de se reproduire, elle.
+    \item \textbf{Cohérence temporelle} : suffisamment établie sur FLASH pour être
+        présentée comme un résultat de ce chapitre ; vérifier qu'elle se reproduit
+        aussi sur RSSFP avant de la généraliser aux deux séquences.
+    \item \textbf{Corrélation incertitude/compression} : ne pas chercher à la
+        ``sauver'' en ajoutant des séries une par une jusqu'à obtenir une majorité
+        qui semble stable -- le motif (signe imprévisible, amplitude variable) est
+        déjà assez clair sur 5 séries. Piste plus prometteuse évoquée en
+        \S précédente : tester si l'incertitude suit la \emph{qualité d'image}
+        (bras en position extrême, désaturation) plutôt que la distance
+        CLAV--K1 brute -- nécessiterait une mesure de qualité d'image par frame, pas
+        encore implémentée.
     \item La sous-analyse ``distance à la frame annotée la plus proche''
         (\S\ref{sec:phase3-limite}) reste à faire : nécessite d'abord de retrouver,
         parmi les 300 frames, lesquelles correspondent aux 20 frames annotées
         utilisées à l'entraînement (recalage géométrique, même logique que
         \texttt{build\_frame\_to\_k} en Phase 0) -- pas encore fait.
-    \item Étendre à RSSFP (même patient) pour voir si la cohérence temporelle et la
-        corrélation incertitude/compression sont aussi similaires entre séquences
-        qu'elles l'étaient en Phase 2 (Dice, MC Dropout).
+    \item Étendre à RSSFP (mêmes patients) pour voir si la cohérence temporelle se
+        confirme sur la deuxième séquence, comme le Dice et MC Dropout l'ont montré
+        en Phase 2.
 \end{enumerate}
 
 \end{document}
