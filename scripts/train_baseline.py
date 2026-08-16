@@ -155,11 +155,17 @@ def main():
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--dropout", type=float, default=0.0,
+                         help="Dropout2d (bottleneck/enc4/dec4 uniquement, Kendall et al. 2015) pour "
+                              "MC Dropout -- Phase 2 XAI. 0.0 par défaut = architecture identique aux "
+                              "6 checkpoints du baseline Phase 1. Produit un checkpoint suffixé "
+                              "'_dropout', jamais celui du baseline (pas de comparaison Phase 1 faussée).")
     args = parser.parse_args()
 
     device = get_device()
     print(f"Device: {device}")
-    print(f"Séquence: {args.sequence} (augmentation: activée, crop ROI: inactif -- fixé par méthodologie)")
+    print(f"Séquence: {args.sequence} (augmentation: activée, crop ROI: inactif -- fixé par méthodologie, "
+          f"dropout: {args.dropout})")
 
     splits = get_kfold_splits(PROCESSED / "manifest.csv", k=args.k, always_train=NEEDS_REVIEW)
     train_patients, val_patients = splits[args.fold]["train"], splits[args.fold]["val"]
@@ -183,14 +189,15 @@ def main():
     class_weights = compute_class_weights(train_ds, n_classes=7).to(device)
     print("  poids:", {name: round(w, 2) for name, w in zip(STRUCTURE_NAMES, class_weights.tolist())})
 
-    model = UNet2D(in_channels=1, n_classes=7, base_ch=32).to(device)
+    model = UNet2D(in_channels=1, n_classes=7, base_ch=32, dropout=args.dropout).to(device)
     criterion = DiceCELoss(n_classes=7, class_weights=class_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     best_mean_dice = -1.0
     ckpt_dir = ROOT / "checkpoints"
     ckpt_dir.mkdir(exist_ok=True)
-    ckpt_path = ckpt_dir / f"checkpoint_{args.sequence}_fold{args.fold}.pt"
+    suffix = "_dropout" if args.dropout > 0 else ""
+    ckpt_path = ckpt_dir / f"checkpoint_{args.sequence}_fold{args.fold}{suffix}.pt"
     history = []
 
     for epoch in range(1, args.epochs + 1):
@@ -221,7 +228,7 @@ def main():
             best_mean_dice = mean_fg_dice
             torch.save({"model_state": model.state_dict(), "epoch": epoch,
                         "val_dice_per_class": val_dice, "fold": args.fold,
-                        "sequence": args.sequence}, ckpt_path)
+                        "sequence": args.sequence, "dropout": args.dropout}, ckpt_path)
 
     print(f"\nMeilleur Dice moyen (structures) : {best_mean_dice:.4f} — checkpoint : {ckpt_path}")
     print("Évaluation finale du meilleur checkpoint, PAR PATIENT (Dice + Précision + Rappel + HD95 + NSD)...")
@@ -229,7 +236,11 @@ def main():
     model.load_state_dict(checkpoint["model_state"])
 
     rows = evaluate_per_patient(model, val_patients, args.sequence, args.fold, device)
-    save_per_patient_rows(rows)
+    if args.dropout > 0:
+        print("  dropout>0 : run non ajouté à baseline_per_patient_metrics.csv "
+              "(réservé aux 6 runs Phase 1 sans dropout, comparaison FLASH/RSSFP déjà close)")
+    else:
+        save_per_patient_rows(rows)
 
     per_patient_df = pd.DataFrame(rows)
     pooled = per_patient_df.groupby("structure")[["dice", "precision", "recall", "hausdorff95", "nsd"]].mean()
@@ -250,7 +261,7 @@ def main():
         "recall": torch.tensor(pooled["recall"].values, dtype=torch.float32),
         "hausdorff95": torch.tensor(pooled["hausdorff95"].values, dtype=torch.float32),
     }
-    tag = f"baseline_{args.sequence}_fold{args.fold}"
+    tag = f"baseline_{args.sequence}_fold{args.fold}{suffix}"
     generate_all_figures(history, final_metrics, model, val_ds, device, fig_dir, tag)
 
 

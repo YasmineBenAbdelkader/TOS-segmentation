@@ -235,6 +235,32 @@ def plot_sanity_check(correlations, structure_name, out_path):
     plt.close(fig)
 
 
+def plot_uncertainty(image, entropy_map, gt_mask, pred_mask, error_mask, out_path):
+    """Carte d'incertitude (entropie prédictive MC Dropout) + carte d'erreur
+    juxtaposées -- permet de juger visuellement si l'incertitude est élevée
+    précisément là où le modèle se trompe (signal de calibration utile) ou
+    diffuse/décorrélée des erreurs (signal moins exploitable)."""
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].imshow(image, cmap="gray")
+    im = axes[0].imshow(entropy_map, cmap="magma", alpha=0.6)
+    if gt_mask is not None and gt_mask.any():
+        axes[0].contour(gt_mask, levels=[0.5], colors=["lime"], linewidths=1.2)
+    if pred_mask is not None and pred_mask.any():
+        axes[0].contour(pred_mask, levels=[0.5], colors=["cyan"], linewidths=1, linestyles="dashed")
+    axes[0].set_title("Incertitude (entropie MC Dropout)")
+    axes[0].axis("off")
+    fig.colorbar(im, ax=axes[0], fraction=0.046, pad=0.04)
+
+    axes[1].imshow(image, cmap="gray")
+    axes[1].imshow(error_mask, cmap="Reds", alpha=0.5, vmin=0, vmax=1)
+    axes[1].set_title("Erreur de prédiction (rouge = pixel mal classé)")
+    axes[1].axis("off")
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
 def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, tag):
     """tag : préfixe complet des fichiers générés (ex. 'baseline_FLASH_fold0'), pas
     seulement un numéro de fold — permet de distinguer les runs par séquence/modèle

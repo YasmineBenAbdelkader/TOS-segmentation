@@ -752,18 +752,98 @@ outils, en est un indice préliminaire, pas une mesure : \textbf{à quantifier
 proprement en Phase 3} (corrélation frame-à-frame des cartes de saillance sur la
 séquence dynamique complète), pas à généraliser à partir de 4 images.
 
+\section{MC Dropout}
+\label{sec:mc-dropout}
+
+\subsection{Modèle et méthode}
+
+Gal \& Ghahramani (2016) : le dropout, actif à l'inférence (pas seulement à
+l'entraînement) et répété sur plusieurs passes avant, approxime un tirage de la
+distribution a posteriori des poids -- incertitude épistémique sans changer le coût
+d'entraînement au-delà du dropout lui-même. Architecture modifiée
+(\texttt{src/model.py}) : \texttt{Dropout2d} ($p=0{,}2$) sur les 3 couches centrales
+uniquement (bottleneck, enc4, dec4), pas après chaque couche -- suit Kendall et al.
+(2015, ``Bayesian SegNet''), qui montrent que le dropout partout est un
+régularisateur trop fort et ralentit l'apprentissage sur ce type d'architecture ;
+$p=0{,}2$ plus conservateur que leur $0{,}5$, choisi pour un dataset déjà petit.
+\textbf{Ré-entraînement dédié} (FLASH, fold 1, mêmes hyperparamètres sinon,
+checkpoint séparé \texttt{checkpoint\_FLASH\_fold1\_dropout.pt}, jamais mélangé aux
+6 checkpoints du baseline Phase 1) -- \textbf{Dice 0,7842, légèrement supérieur} au
+même run sans dropout (0,7796) : cohérent avec Kendall et al., qui rapportent que la
+régularisation bayésienne n'abîme pas la performance et peut l'améliorer légèrement.
+30 passes avant par prédiction (\texttt{src/xai.py}, \texttt{mc\_dropout\_predict})
+-- compromis avec les 50 passes de Kendall et al., pour limiter le coût sur ce
+matériel (anomalies de temps déjà documentées). Incertitude résumée par
+\textbf{l'entropie prédictive} de la distribution moyenne (Kendall \& Gal 2017), pas
+seulement la variance d'une classe -- capture aussi l'ambiguïté entre classes
+voisines, pas seulement l'incertitude sur une seule.
+
+\subsection{Validation quantitative}
+
+Sur les 4 mêmes échantillons que Seg-Grad-CAM (409~600 pixels au total) :
+\textbf{corrélation point-bisériale entre correction de la prédiction et entropie :
+$r=-0{,}54$ ($p<10^{-300}$)} -- entropie moyenne de 0,0046 sur les pixels
+correctement classés contre \textbf{0,3661 sur les pixels en erreur (80$\times$
+plus élevée)}. L'incertitude MC Dropout est donc \textbf{fortement et
+significativement associée aux erreurs réelles du modèle}, pas un artefact
+décoratif.
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Structure & Entropie moyenne (4 échantillons) \\
+\midrule
+CLAV & 0,1224 \\
+VSC  & 0,1484 \\
+PB   & 0,2425 \\
+ASC  & 0,2724 \\
+MSC  & 0,2814 \\
+K1   & 0,2834 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{L'incertitude par structure reproduit presque exactement le classement de
+difficulté déjà établi sur 8/8 runs du baseline} (\S\ref{chap:resultats}) : K1 et
+MSC (les deux structures les plus faibles en Dice) ont l'entropie la plus haute ;
+CLAV et VSC (les plus faciles) ont l'entropie la plus basse. Le modèle ``sait''
+donc, au sens de MC Dropout, qu'il est moins fiable précisément sur les structures
+où il l'est effectivement le moins -- signal de bonne calibration, obtenu sans
+aucune supervision explicite de l'incertitude.
+
+\begin{center}
+\includegraphics[width=0.9\textwidth]{figures/xai_mcdropout_sample0.png}
+\end{center}
+
+\textbf{Confirmation visuelle} : l'incertitude se concentre nettement sur les
+\emph{frontières} des structures (figure ci-dessus), exactement là où se trouvent
+les erreurs de prédiction -- cohérent avec l'intuition clinique (les bords d'une
+petite structure vasculaire/nerveuse sur IRM sont intrinsèquement plus ambigus,
+effets de volume partiel) et avec la littérature (Kendall \& Gal 2017).
+
+\section{Synthèse Phase 2}
+
+Les 3 outils prévus dans le plan initial (chapitre~\ref{chap:contexte}) sont
+maintenant implémentés et validés sur le modèle FLASH fold 1 : Seg-Grad-CAM et
+occlusion passent le test de randomisation, MC Dropout est quantitativement corrélé
+aux erreurs réelles et reproduit le classement de difficulté par structure déjà
+établi. \textbf{Aucun des trois n'a été pris sur la seule foi de son aspect visuel}
+-- chacun a un critère de validation explicite avant d'être considéré fiable,
+conformément au principe posé en ouverture de ce chapitre.
+
 \section{Prochaines étapes}
 
 \begin{enumerate}[nosep]
-    \item Ajouter le dropout à \texttt{UNet2D} et ré-entraîner FLASH fold 1 pour
-        obtenir MC Dropout (cartes d'incertitude par pixel).
-    \item Une fois les 3 outils disponibles, étendre au modèle RSSFP (meilleur
-        checkpoint, fold 0) pour comparer l'interprétabilité entre les deux
-        séquences -- axe motivé par l'absence de différence de Dice trouvée
+    \item Étendre les 3 outils au modèle RSSFP (meilleur checkpoint, fold 0, +
+        ré-entraînement avec dropout) pour comparer l'interprétabilité entre les
+        deux séquences -- axe motivé par l'absence de différence de Dice trouvée
         au chapitre précédent.
     \item Phase 3 : quantifier la cohérence temporelle des explications sur la
         séquence dynamique complète (pas seulement les 20 frames annotées), motivée
-        par l'observation qualitative ci-dessus.
+        par l'observation qualitative sur Seg-Grad-CAM (\S\ref{sec:xai-sanity-check}
+        et suivante) -- et maintenant aussi par la question de savoir si
+        l'incertitude MC Dropout dérive en douceur ou de façon erratique le long de
+        la séquence.
 \end{enumerate}
 
 \end{document}

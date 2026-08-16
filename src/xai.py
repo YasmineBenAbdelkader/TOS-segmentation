@@ -97,6 +97,49 @@ def occlusion_sensitivity(model, image, class_idx, region_mask=None, patch_size=
     return (heatmap / counts).numpy()
 
 
+def _enable_mc_dropout(model):
+    """Passe uniquement les modules Dropout2d en mode train (le reste -- BatchNorm,
+    convs -- reste en eval) -- c'est ce qui distingue MC Dropout d'un .train()
+    global, qui réactiverait aussi les statistiques batch de BatchNorm de façon non
+    voulue à l'inférence."""
+    for module in model.modules():
+        if isinstance(module, torch.nn.Dropout2d):
+            module.train()
+
+
+@torch.no_grad()
+def mc_dropout_predict(model, image, n_samples=30):
+    """MC Dropout (Gal & Ghahramani, 2016) -- le dropout, actif à l'inférence (pas
+    seulement à l'entraînement), transforme chaque passe avant en un tirage
+    approximatif de la distribution a posteriori des poids ; répéter la passe
+    n_samples fois et regarder la variance des prédictions donne une incertitude
+    épistémique sans changer l'architecture ni le coût d'entraînement au-delà du
+    dropout lui-même. n_samples=30 : compromis coût/stabilité -- Kendall et al.
+    (2015, Bayesian SegNet) utilisent 50 passes ; 30 reste proche tout en réduisant
+    le coût de ~40% sur ce matériel (voir anomalies de temps déjà documentées).
+
+    Renvoie (mean_probs, std_probs), chacun (1, n_classes, H, W) -- moyenne et
+    écart-type des probabilités softmax sur les n_samples tirages."""
+    _enable_mc_dropout(model)
+    probs = []
+    for _ in range(n_samples):
+        logits = model(image)
+        probs.append(F.softmax(logits, dim=1))
+    probs = torch.stack(probs, dim=0)
+    return probs.mean(dim=0), probs.std(dim=0)
+
+
+def predictive_entropy(mean_probs, eps=1e-8):
+    """Entropie de la distribution de probabilité moyenne, par pixel -- incertitude
+    prédictive totale (Kendall & Gal, 2017, "What uncertainties do we need in
+    Bayesian deep learning for computer vision?"), pas seulement la variance d'une
+    classe : capture aussi l'ambiguïté entre classes (ex. un pixel à la frontière
+    entre deux structures, où le modèle hésite entre les deux sans qu'aucune des
+    deux variances individuelles ne soit nécessairement énorme)."""
+    p = mean_probs.squeeze(0).cpu().numpy()
+    return -(p * np.log(p + eps)).sum(axis=0)
+
+
 def _ordered_layers_top_to_bottom(model):
     """Ordre des couples (nom, module) à poids, de la sortie vers l'entrée --
     utilisé par le test de randomisation en cascade. Suit l'ordre inverse du
