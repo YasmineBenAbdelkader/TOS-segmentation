@@ -4,6 +4,7 @@ DATA_processed/
 DATA_processed.zip
 *.zip
 _archive_volume_n4/
+big_dataset/
 
 # Model checkpoints / large binaries
 checkpoints/

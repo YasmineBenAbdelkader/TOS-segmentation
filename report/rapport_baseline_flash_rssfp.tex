@@ -971,4 +971,103 @@ indépendants), ce qui sécurise son usage pour la suite (Phase 3).
         clinique) plutôt que par ce seul angle de comparaison de séquences.
 \end{enumerate}
 
+\chapter{Phase 3 --- Analyse spécifique au caractère dynamique}
+\label{chap:phase3}
+
+\section{Limite bloquante et statut actuel}
+\label{sec:phase3-limite}
+
+Le plan initial (chapitre~\ref{chap:contexte}) prévoit cette analyse sur la
+séquence dynamique \textbf{complète} ($\approx$300 frames par série). Or seules les
+\textbf{20 frames annotées} sont présentes localement dans \texttt{DATA/} --
+confirmé sur plusieurs patients/séries (\texttt{find DATA ... | wc -l} $\to$ 20
+partout). Le reste de l'acquisition existe mais doit être récupéré (disque externe
+ou service d'imagerie) -- \textbf{en cours}.
+
+\textbf{Ce que ce chapitre présente en attendant} : le code de l'analyse temporelle
+(\texttt{src/phase3.py}, \texttt{scripts/run\_phase3\_temporal.py}) est écrit, testé
+et validé de bout en bout sur les 20 frames actuellement disponibles, sans aucune
+dépendance à leur nombre -- il tournera à l'identique sur 300 frames dès qu'elles
+seront ajoutées, aucune modification de code nécessaire. Les résultats ci-dessous
+sont donc un \textbf{pilote de validation du pipeline}, pas encore la véritable
+analyse Phase 3 : à re-générer avec la séquence complète avant d'en tirer une
+conclusion pour la thèse.
+
+\textbf{Une sous-analyse spécifiquement bloquée} : la corrélation entre incertitude/
+saillance et distance-à-la-frame-annotée-la-plus-proche n'a aucun sens sur ces 20
+frames, puisqu'elles sont \emph{toutes} annotées (distance nulle partout, rien à
+corréler) -- cette analyse ne pourra être faite qu'une fois les frames non
+annotées disponibles.
+
+\section{Méthode}
+
+Toutes les métriques utilisent les \textbf{prédictions du modèle} (Phase 1), jamais
+la vérité terrain -- cohérent avec l'objectif (analyser une séquence sans
+annotation).
+
+\begin{description}[style=nextline]
+    \item[Courbe de compression costoclaviculaire] Distance minimale entre les
+        masques prédits CLAV et K1, frame par frame (distance de surface, pas
+        centroïde-à-centroïde -- plus proche de la définition anatomique réelle de
+        l'espace costoclaviculaire). \texttt{src/phase3.py},
+        \texttt{costoclavicular\_distance}.
+    \item[Incertitude au cours du temps] Entropie prédictive moyenne (MC Dropout,
+        30 passes, \S\ref{chap:xai}) par frame.
+    \item[Cohérence temporelle de la saillance] Corrélation de Spearman entre les
+        cartes Seg-Grad-CAM (structure K1) de deux frames consécutives -- une
+        anatomie réelle bouge en douceur, donc une explication fidèle devrait rester
+        fortement corrélée frame à frame ; une valeur proche de 0 ou négative
+        signalerait une saillance erratique, déconnectée du mouvement réel.
+        \texttt{src/phase3.py}, \texttt{temporal\_saliency\_consistency}.
+\end{description}
+
+Pilote exécuté sur \texttt{2017-110 01-0230-V1MR, FLASH D} (patient de validation
+FLASH fold 1, déjà utilisé en Phase 2), modèle FLASH fold 1 (plain et dropout).
+
+\section{Résultat pilote (20 frames -- à refaire avec la séquence complète)}
+
+\begin{center}
+\includegraphics[width=0.85\textwidth]{figures/phase3_FLASH_2017-110_01-0230-V1MR_FLASHD_dashboard.png}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Métrique & Valeur \\
+\midrule
+Distance CLAV--K1 (min / moy / max, px$\approx$mm) & 9,2 / 11,3 / 13,9 \\
+Entropie moyenne (min / max) & 0,0059 (0,0052 / 0,0075) \\
+Cohérence temporelle Seg-Grad-CAM (moyenne / min) & 0,712 / 0,430 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Observation qualitative, à confirmer, pas à généraliser} : le pic
+d'incertitude le plus net (frame 9, entropie 0,0075) coïncide approximativement
+avec l'une des deux valeurs les plus basses de la distance CLAV--K1 (frame 9,
+9,2px -- proche du minimum de la courbe) -- cohérent avec l'hypothèse clinique que
+les instants de compression maximale sont aussi les plus ambigus pour le modèle.
+\textbf{Mais} : avec seulement 20 points, sans certitude que ces frames couvrent un
+mouvement continu réel (on ne sait pas si elles sont consécutives depuis le début
+de l'acquisition ou réparties sur l'ensemble du mouvement, \S\ref{sec:phase3-limite}),
+cette coïncidence unique ne constitue pas une preuve -- juste une piste qui
+justifie de refaire l'analyse sur la séquence complète.
+
+\textbf{Cohérence temporelle de Seg-Grad-CAM restée positive sur toutes les paires
+de frames} (0,43 à 0,85, jamais proche de 0 ni négative) -- signal rassurant sur ce
+pilote : pas de saillance erratique détectée. À confirmer sur ~300 frames, où de
+vrais mouvements amples (variation d'abduction du bras) pourraient révéler des
+transitions plus marquées que sur ces 20 frames à distance de compression déjà
+relativement stable (9-14px, pas d'écart extrême).
+
+\section{Prochaine étape}
+
+Dès que la séquence complète est disponible pour au moins ce patient pilote,
+relancer \texttt{scripts/run\_phase3\_temporal.py} tel quel et comparer les 3
+courbes sur les $\approx$300 frames aux résultats pilotes ci-dessus -- en
+particulier vérifier si la cohérence temporelle de Seg-Grad-CAM reste aussi stable
+sur un mouvement bien plus ample, et si la corrélation incertitude/compression
+suggérée ici se confirme statistiquement (largement impossible avec $n=20$, plus
+crédible avec $n\approx300$).
+
 \end{document}

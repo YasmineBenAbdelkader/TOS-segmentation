@@ -261,6 +261,37 @@ def plot_uncertainty(image, entropy_map, gt_mask, pred_mask, error_mask, out_pat
     plt.close(fig)
 
 
+def plot_phase3_dashboard(instance_numbers, distances, entropies, consistency, out_path,
+                           title_suffix=""):
+    """Tableau de bord Phase 3 -- 3 panneaux empilés partageant l'axe temporel (frame) :
+    distance costoclaviculaire (compression), incertitude MC Dropout moyenne, et
+    cohérence temporelle de la saillance (Seg-Grad-CAM). Empilés plutôt que
+    superposés pour garder des échelles indépendantes lisibles (mm, entropie,
+    corrélation de Spearman n'ont rien de commun)."""
+    fig, axes = plt.subplots(3, 1, figsize=(9, 8), sharex=True)
+
+    axes[0].plot(instance_numbers, distances, marker="o", ms=3, color="firebrick")
+    axes[0].set_ylabel("Distance CLAV–K1 (px ≈ mm)")
+    axes[0].set_title(f"Courbe de compression costoclaviculaire{title_suffix}")
+    axes[0].grid(alpha=0.3)
+
+    axes[1].plot(instance_numbers, entropies, marker="o", ms=3, color="steelblue")
+    axes[1].set_ylabel("Entropie moyenne\n(incertitude MC Dropout)")
+    axes[1].grid(alpha=0.3)
+
+    mid_x = [(instance_numbers[i] + instance_numbers[i + 1]) / 2 for i in range(len(consistency))]
+    axes[2].plot(mid_x, consistency, marker="o", ms=3, color="seagreen")
+    axes[2].axhline(0, color="gray", linestyle="--", linewidth=1)
+    axes[2].set_ylabel("Cohérence temporelle\n(Spearman, frames consécutives)")
+    axes[2].set_xlabel("Frame (InstanceNumber)")
+    axes[2].set_ylim(-1.05, 1.05)
+    axes[2].grid(alpha=0.3)
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
 def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, tag):
     """tag : préfixe complet des fichiers générés (ex. 'baseline_FLASH_fold0'), pas
     seulement un numéro de fold — permet de distinguer les runs par séquence/modèle
