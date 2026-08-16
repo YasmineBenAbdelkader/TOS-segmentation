@@ -1136,6 +1136,39 @@ chez le même patient. La cohérence temporelle de Seg-Grad-CAM, elle, reste le
 résultat le plus solide de ce chapitre à ce stade (reproduit à l'identique sur 2
 séries indépendantes).
 
+\section{Troisième série, patient différent (0231, FLASH D) : confirme les deux
+constats précédents}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Métrique & 0230 FLASH D & 0230 FLASH G & 0231 FLASH D \\
+\midrule
+Distance CLAV--K1 (min/moy/max, px) & 7,8/11,0/13,9 & 8,5/10,1/12,0 & 3,0/11,8/13,0 \\
+Cohérence temporelle (moy./min) & 0,942/0,784 & 0,928/0,827 & \textbf{0,970/0,922} \\
+Corrélation incertitude$\leftrightarrow$distance ($\rho$) & $-0{,}1801^{**}$ &
+    $+0{,}2231^{**}$ & $+0{,}2165^{**}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+{\footnotesize $^{**}$ $p<0{,}01$ pour les 3.}
+
+\textbf{Cohérence temporelle} : troisième confirmation, encore meilleure (0,970)
+que les deux précédentes -- ce résultat continue de se renforcer à mesure que
+l'échantillon grandit, contrairement à la corrélation incertitude/compression.
+
+\textbf{Corrélation incertitude/compression} : le nouveau patient (D) donne un
+signe positif, \textbf{comme FLASH G du patient précédent, pas comme FLASH D du
+patient précédent} -- écarte l'hypothèse ``le signe dépend du côté D vs G'' formulée
+en \S\ref{sec:phase3-flash-g}. Sur 3 séries, 2 sont positives et 1 est négative :
+rien ne permet de prédire le signe à l'avance, cohérent avec un effet réel mais trop
+petit et trop dépendant du cas pour être un résultat généralisable en l'état.
+
+\textbf{Point annexe, à surveiller} : distance minimale de 3,0px sur ce patient,
+nettement plus basse que sur 0230 (7,8--8,5px) -- soit une compression réellement
+plus marquée chez ce patient, soit un artefact de prédiction sur une frame
+particulière (à vérifier visuellement avant de l'interpréter cliniquement).
+
 \section{Prochaine étape}
 
 \begin{enumerate}[nosep]
