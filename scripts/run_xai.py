@@ -1,9 +1,9 @@
-"""Phase 2 — construit et valide Seg-Grad-CAM + occlusion sur le modèle FLASH fold 1
-(meilleur checkpoint disponible, Dice 0,7796 -- voir rapport §Choix du modèle XAI).
-MC Dropout n'est pas inclus ici (nécessite un ré-entraînement, voir même section).
+"""Phase 2 — construit et valide Seg-Grad-CAM + occlusion sur un checkpoint donné.
+MC Dropout n'est pas inclus ici (nécessite un ré-entraînement, voir scripts/run_mc_dropout.py).
 
-Usage: python scripts/run_xai.py
+Usage: python scripts/run_xai.py --sequence FLASH --fold 1
 """
+import argparse
 import random
 import sys
 from pathlib import Path
@@ -21,7 +21,6 @@ from src.xai import SegGradCAM, cascading_randomization_test, occlusion_sensitiv
 
 ROOT = Path(__file__).resolve().parent.parent
 PROCESSED = ROOT / "DATA_processed"
-CKPT = ROOT / "checkpoints" / "checkpoint_FLASH_fold1.pt"
 OUT_DIR = ROOT / "report" / "figures"
 NEEDS_REVIEW = ["2017-110_01-0224-V1MR"]
 
@@ -35,24 +34,33 @@ def get_device():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sequence", type=str, required=True, choices=["FLASH", "RSSFP"])
+    parser.add_argument("--fold", type=int, required=True)
+    args = parser.parse_args()
+    tag_prefix = f"xai_seggradcam_{args.sequence}_fold{args.fold}"
+    occlusion_prefix = f"xai_occlusion_{args.sequence}_fold{args.fold}"
+    sanity_prefix = f"xai_sanity_check_{args.sequence}_fold{args.fold}"
+
     device = get_device()
     print(f"Device: {device}")
 
-    checkpoint = torch.load(CKPT, weights_only=False, map_location=device)
+    ckpt_path = ROOT / "checkpoints" / f"checkpoint_{args.sequence}_fold{args.fold}.pt"
+    checkpoint = torch.load(ckpt_path, weights_only=False, map_location=device)
     model = UNet2D(in_channels=1, n_classes=7, base_ch=32).to(device)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
-    print(f"Checkpoint chargé : fold {checkpoint['fold']}, séquence {checkpoint['sequence']}, "
-          f"epoch {checkpoint['epoch']}")
+    print(f"Checkpoint chargé : {ckpt_path.name} -- fold {checkpoint['fold']}, "
+          f"séquence {checkpoint['sequence']}, epoch {checkpoint['epoch']}")
 
     splits = get_kfold_splits(PROCESSED / "manifest.csv", k=3, always_train=NEEDS_REVIEW)
-    val_patients = splits[1]["val"]  # fold 1, cohérent avec le checkpoint
-    val_ds = TOSDataset(PROCESSED, val_patients, crop=False, sequence="FLASH")
+    val_patients = splits[args.fold]["val"]
+    val_ds = TOSDataset(PROCESSED, val_patients, crop=False, sequence=args.sequence)
     print(f"{len(val_ds)} frames de validation disponibles ({len(val_patients)} patients)")
 
     cam_tool = SegGradCAM(model, model.dec1)
 
-    rng = random.Random(0)
+    rng = random.Random(0)  # même graine pour tous les checkpoints -- échantillons comparables entre modèles
     sample_idxs = rng.sample(range(len(val_ds)), 4)
 
     print("\n=== Seg-Grad-CAM : 4 échantillons x 6 structures ===")
@@ -72,7 +80,7 @@ def main():
             cam = cam_tool(image_batch, class_idx)
             if cam is None:
                 continue
-            out_path = OUT_DIR / f"xai_seggradcam_sample{i}_{structure}.png"
+            out_path = OUT_DIR / f"{tag_prefix}_sample{i}_{structure}.png"
             plot_seggradcam(img_np, cam, gt_mask, pred_mask, structure, out_path)
         print(f"  échantillon {i} (idx={idx}) : figures sauvegardées")
 
@@ -87,7 +95,7 @@ def main():
             heatmap = occlusion_sensitivity(model, image_batch, class_idx, patch_size=16, stride=8)
             if heatmap is None:
                 continue
-            out_path = OUT_DIR / f"xai_occlusion_sample{sample_idxs.index(i)}_{name}.png"
+            out_path = OUT_DIR / f"{occlusion_prefix}_sample{sample_idxs.index(i)}_{name}.png"
             plot_occlusion(img_np, heatmap, gt_mask, name, out_path)
         print(f"  échantillon idx={i} : occlusion terminée")
 
@@ -102,7 +110,7 @@ def main():
         if correlations is None:
             print(f"  {name} : structure absente de cet échantillon, sanity check ignoré")
             continue
-        out_path = OUT_DIR / f"xai_sanity_check_{name}.png"
+        out_path = OUT_DIR / f"{sanity_prefix}_{name}.png"
         plot_sanity_check(correlations, name, out_path)
         print(f"  {name} : corrélations = {[round(c, 3) for c in correlations]}")
 

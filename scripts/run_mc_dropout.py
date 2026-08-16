@@ -1,10 +1,11 @@
-"""Phase 2 — MC Dropout sur le modèle FLASH fold 1 (variante avec dropout,
-checkpoint_FLASH_fold1_dropout.pt, Dice 0,7842). Génère les cartes d'incertitude et
-valide qualitativement + quantitativement (corrélation incertitude/erreur, et
-incertitude moyenne par structure) avant d'en tirer des conclusions.
+"""Phase 2 — MC Dropout sur un checkpoint "_dropout" donné. Génère les cartes
+d'incertitude et valide qualitativement + quantitativement (corrélation
+incertitude/erreur, incertitude moyenne par structure) avant d'en tirer des
+conclusions.
 
-Usage: python scripts/run_mc_dropout.py
+Usage: python scripts/run_mc_dropout.py --sequence FLASH --fold 1
 """
+import argparse
 import random
 import sys
 from pathlib import Path
@@ -24,7 +25,6 @@ from src.xai import mc_dropout_predict, predictive_entropy
 
 ROOT = Path(__file__).resolve().parent.parent
 PROCESSED = ROOT / "DATA_processed"
-CKPT = ROOT / "checkpoints" / "checkpoint_FLASH_fold1_dropout.pt"
 OUT_DIR = ROOT / "report" / "figures"
 NEEDS_REVIEW = ["2017-110_01-0224-V1MR"]
 
@@ -38,20 +38,27 @@ def get_device():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sequence", type=str, required=True, choices=["FLASH", "RSSFP"])
+    parser.add_argument("--fold", type=int, required=True)
+    args = parser.parse_args()
+    tag_prefix = f"xai_mcdropout_{args.sequence}_fold{args.fold}"
+
     device = get_device()
     print(f"Device: {device}")
 
-    checkpoint = torch.load(CKPT, weights_only=False, map_location=device)
+    ckpt_path = ROOT / "checkpoints" / f"checkpoint_{args.sequence}_fold{args.fold}_dropout.pt"
+    checkpoint = torch.load(ckpt_path, weights_only=False, map_location=device)
     model = UNet2D(in_channels=1, n_classes=7, base_ch=32, dropout=checkpoint["dropout"]).to(device)
     model.load_state_dict(checkpoint["model_state"])
-    print(f"Checkpoint chargé : fold {checkpoint['fold']}, séquence {checkpoint['sequence']}, "
-          f"dropout {checkpoint['dropout']}, epoch {checkpoint['epoch']}")
+    print(f"Checkpoint chargé : {ckpt_path.name} -- fold {checkpoint['fold']}, "
+          f"séquence {checkpoint['sequence']}, dropout {checkpoint['dropout']}, epoch {checkpoint['epoch']}")
 
     splits = get_kfold_splits(PROCESSED / "manifest.csv", k=3, always_train=NEEDS_REVIEW)
-    val_patients = splits[1]["val"]
-    val_ds = TOSDataset(PROCESSED, val_patients, crop=False, sequence="FLASH")
+    val_patients = splits[args.fold]["val"]
+    val_ds = TOSDataset(PROCESSED, val_patients, crop=False, sequence=args.sequence)
 
-    rng = random.Random(0)  # même graine que run_xai.py -- mêmes 4 échantillons, comparables
+    rng = random.Random(0)  # même graine que run_xai.py -- mêmes échantillons, comparables entre modèles
     sample_idxs = rng.sample(range(len(val_ds)), 4)
 
     all_entropy, all_correct, all_structure_entropy = [], [], {name: [] for name in STRUCTURE_NAMES[1:]}
@@ -68,7 +75,7 @@ def main():
         entropy = predictive_entropy(mean_probs)
         error_mask = (pred != label_np).astype(float)
 
-        out_path = OUT_DIR / f"xai_mcdropout_sample{i}.png"
+        out_path = OUT_DIR / f"{tag_prefix}_sample{i}.png"
         plot_uncertainty(img_np, entropy, label_np, pred, error_mask, out_path)
 
         all_entropy.append(entropy.flatten())
@@ -84,9 +91,6 @@ def main():
     print("\n=== Validation quantitative ===")
     entropy_all = np.concatenate(all_entropy)
     correct_all = np.concatenate(all_correct)
-    # correlation point-bisériale : incertitude (continue) vs correction (binaire) --
-    # équivalent d'un Pearson quand une variable est binaire, teste si l'entropie est
-    # systématiquement plus basse sur les pixels corrects que sur les pixels en erreur
     corr, pval = pointbiserialr(correct_all, entropy_all)
     print(f"Corrélation point-bisériale (correction, entropie) sur les 4 échantillons "
           f"({len(entropy_all)} pixels) : r={corr:.4f}, p={pval:.2e}")

@@ -651,6 +651,41 @@ Choix assumé (voir discussion de conception) : valider les outils sur un modèl
 confiance avant d'étendre à d'autres checkpoints, pour ne pas mélanger deux inconnues
 (l'outil et le modèle) en cas de résultat surprenant.
 
+\subsection{Pourquoi 3 outils complémentaires, pas un seul}
+\label{sec:xai-pourquoi-trois}
+
+Les 3 outils ne répondent pas à la même question, donc ne sont pas de simples
+répétitions les uns des autres :
+
+\begin{itemize}[nosep]
+    \item \textbf{Seg-Grad-CAM et occlusion} répondent tous les deux à \emph{``où le
+        modèle regarde-t-il pour prédire cette structure ?''}, mais par deux
+        mécanismes indépendants -- gradient pour l'un, perturbation directe pour
+        l'autre. Ils sont donc partiellement redondants \emph{par construction}, ce
+        qui est précisément leur intérêt : quand les deux s'accordent, c'est un
+        signal plus robuste qu'une seule méthode ; quand ils divergent, la
+        divergence elle-même est informative plutôt qu'ignorée.
+    \item \textbf{MC Dropout} répond à une question différente et non redondante :
+        \emph{``à quel point le modèle est-il sûr de sa prédiction, pixel par
+        pixel ?''} -- une information sur la confiance, pas sur la localisation.
+\end{itemize}
+
+\textbf{Justification empirique, pas seulement de principe} : les résultats de ce
+chapitre montrent concrètement pourquoi les deux méthodes de localisation sont
+utilisées ensemble plutôt qu'une seule (\S\ref{sec:seggradcam-variabilite}). Sur un
+même échantillon de K1, Seg-Grad-CAM donne une carte diffuse (aucun pic net) tandis
+que l'occlusion, sur ce même échantillon, localise nettement la structure.
+\textbf{Si Seg-Grad-CAM avait été utilisé seul, la conclusion aurait été ``le modèle
+n'arrive pas à localiser K1'' -- fausse}, comme le montre l'occlusion sur le même
+cas. Utiliser les deux méthodes a évité cette conclusion erronée. C'est un
+garde-fou concret, pas seulement une bonne pratique citée par principe.
+
+\textbf{Coût assumé de cette approche} : 3 outils demandent plus de travail qu'un
+seul, y compris un ré-entraînement dédié pour MC Dropout. Choix jugé nécessaire ici
+parce que le sujet de la thèse est l'interprétabilité elle-même (chapitre
+Contexte) -- une seule méthode de saillance, sans validation croisée ni mesure de
+confiance, serait insuffisante pour soutenir la contribution centrale du projet.
+
 \textbf{Deux méthodes implémentées, sans ré-entraînement} (\texttt{src/xai.py}) :
 
 \begin{description}[style=nextline]
@@ -717,6 +752,7 @@ causal de chaque région sur le score, indépendamment de la forme de la structu
 
 \subsection{Seg-Grad-CAM : localisation variable d'une frame à l'autre pour une même
 structure}
+\label{sec:seggradcam-variabilite}
 
 \begin{center}
 \includegraphics[width=0.32\textwidth]{figures/xai_seggradcam_sample0_K1.png}
@@ -821,29 +857,112 @@ les erreurs de prédiction -- cohérent avec l'intuition clinique (les bords d'u
 petite structure vasculaire/nerveuse sur IRM sont intrinsèquement plus ambigus,
 effets de volume partiel) et avec la littérature (Kendall \& Gal 2017).
 
-\section{Synthèse Phase 2}
+\section{Synthèse Phase 2 sur FLASH}
 
 Les 3 outils prévus dans le plan initial (chapitre~\ref{chap:contexte}) sont
-maintenant implémentés et validés sur le modèle FLASH fold 1 : Seg-Grad-CAM et
-occlusion passent le test de randomisation, MC Dropout est quantitativement corrélé
-aux erreurs réelles et reproduit le classement de difficulté par structure déjà
-établi. \textbf{Aucun des trois n'a été pris sur la seule foi de son aspect visuel}
--- chacun a un critère de validation explicite avant d'être considéré fiable,
-conformément au principe posé en ouverture de ce chapitre.
+implémentés et validés sur le modèle FLASH fold 1 : Seg-Grad-CAM et occlusion
+passent le test de randomisation, MC Dropout est quantitativement corrélé aux
+erreurs réelles et reproduit le classement de difficulté par structure déjà établi.
+\textbf{Aucun des trois n'a été pris sur la seule foi de son aspect visuel} --
+chacun a un critère de validation explicite avant d'être considéré fiable,
+conformément au principe posé en ouverture de ce chapitre
+(\S\ref{sec:xai-pourquoi-trois}).
+
+\section{Extension à RSSFP et comparaison d'interprétabilité}
+
+Les 3 outils ont été étendus au meilleur checkpoint RSSFP (fold 0, Dice 0,7207,
++ ré-entraînement dédié avec dropout, \texttt{checkpoint\_RSSFP\_fold0\_dropout.pt},
+mêmes hyperparamètres que pour FLASH). Motivation directe : le chapitre précédent
+n'a trouvé \textbf{aucune différence de Dice significative} entre FLASH et RSSFP --
+la question posée ici est si les deux modèles \textbf{expliquent} leurs prédictions
+de façon similaire malgré des performances proches, ou si des différences
+apparaissent qu'un simple score de Dice ne capture pas.
+
+\subsection{Sanity check : même résultat que FLASH}
+
+Le test de randomisation en cascade passe aussi proprement sur RSSFP (K1 : la
+corrélation chute de 1,0 à des valeurs proches de 0 dès la première couche
+randomisée, comme sur FLASH) -- les outils restent fiables sur les deux modèles,
+pas seulement sur celui utilisé pour la validation initiale.
+
+\subsection{MC Dropout : résultat quasi identique à FLASH}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+& FLASH (fold 1) & RSSFP (fold 0) \\
+\midrule
+Corrélation entropie/erreur (point-bisériale) & $r=-0{,}5422$ & $r=-0{,}5469$ \\
+Entropie moyenne, pixels corrects & 0,0046 & 0,0072 \\
+Entropie moyenne, pixels en erreur & 0,3661 & 0,3971 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Structure & Entropie moyenne FLASH & Entropie moyenne RSSFP \\
+\midrule
+CLAV & 0,1224 & 0,1818 \\
+VSC  & 0,1484 & 0,1260 \\
+PB   & 0,2425 & 0,2778 \\
+ASC  & 0,2724 & 0,1884 \\
+MSC  & 0,2814 & 0,2016 \\
+K1   & 0,2834 & 0,3075 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Les deux modèles sont bien calibrés de façon quasi identique} : corrélation
+entropie/erreur presque égale ($-0{,}54$ vs $-0{,}55$), et \textbf{K1 reste la
+structure la plus incertaine sur les deux séquences} (cohérent avec son Dice le
+plus faible sur 8/8 runs, \S\ref{chap:resultats}). Seule différence notable : la
+structure la \emph{moins} incertaine change entre les deux modèles -- CLAV pour
+FLASH (0,1224), VSC pour RSSFP (0,1260) -- mais les deux valeurs sont proches et
+l'écart porte sur seulement 4 échantillons par modèle,
+à ne pas sur-interpréter sans un échantillon plus large.
+
+\subsection{Seg-Grad-CAM et occlusion : même comportement, y compris la variabilité}
+
+L'observation faite sur FLASH (\S\ref{sec:seggradcam-variabilite} -- localisation
+Seg-Grad-CAM inconsistante d'une frame à l'autre pour une même structure, alors que
+l'occlusion reste stable) \textbf{se reproduit à l'identique sur RSSFP} : mêmes
+figures qualitatives disponibles (\texttt{xai\_seggradcam\_RSSFP\_fold0\_*.png},
+\texttt{xai\_occlusion\_RSSFP\_fold0\_*.png}). Ce n'est donc pas une particularité
+du modèle FLASH fold 1 mais un comportement partagé par les deux modèles
+spécialisés -- renforce l'idée que c'est un phénomène lié à la méthode
+(Seg-Grad-CAM sur ce type d'architecture/tâche) plutôt qu'à un modèle particulier,
+et renforce d'autant plus l'intérêt de le quantifier proprement en Phase 3.
+
+\section{Conclusion : FLASH et RSSFP, interprétabilité équivalente}
+
+Comme pour le Dice (chapitre précédent), \textbf{aucune différence qualitative ou
+quantitative notable n'est trouvée entre les deux modèles au niveau de
+l'interprétabilité} -- même calibration MC Dropout, même structure la plus
+incertaine (K1), même comportement de Seg-Grad-CAM (variable frame à frame). Les
+deux lectures possibles déjà formulées pour le Dice
+(\S\ref{chap:analyse-stat}) s'appliquent donc aussi ici : soit les deux séquences
+apportent une information réellement équivalente pour ce modèle, soit
+l'échantillon (12 patients, 4 images qualitatives par modèle) est trop petit pour
+détecter une différence réelle mais modeste. \textbf{Ce chapitre ne permet donc pas
+de trancher la question clinique FLASH vs RSSFP} -- il montre en revanche que la
+boîte à outils XAI est robuste (mêmes résultats de validation sur 2 modèles
+indépendants), ce qui sécurise son usage pour la suite (Phase 3).
 
 \section{Prochaines étapes}
 
 \begin{enumerate}[nosep]
-    \item Étendre les 3 outils au modèle RSSFP (meilleur checkpoint, fold 0, +
-        ré-entraînement avec dropout) pour comparer l'interprétabilité entre les
-        deux séquences -- axe motivé par l'absence de différence de Dice trouvée
-        au chapitre précédent.
     \item Phase 3 : quantifier la cohérence temporelle des explications sur la
         séquence dynamique complète (pas seulement les 20 frames annotées), motivée
-        par l'observation qualitative sur Seg-Grad-CAM (\S\ref{sec:xai-sanity-check}
-        et suivante) -- et maintenant aussi par la question de savoir si
-        l'incertitude MC Dropout dérive en douceur ou de façon erratique le long de
-        la séquence.
+        par l'observation qualitative sur Seg-Grad-CAM
+        (\S\ref{sec:seggradcam-variabilite}), maintenant confirmée sur 2 modèles --
+        et par la question de savoir si l'incertitude MC Dropout dérive en douceur
+        ou de façon erratique le long de la séquence.
+    \item Discuter avec l'encadrant du résultat ``aucune différence FLASH/RSSFP,
+        ni en Dice ni en interprétabilité'' -- décider si la question clinique
+        dynamique vs statique doit être creusée autrement (Phase 4, ancrage
+        clinique) plutôt que par ce seul angle de comparaison de séquences.
 \end{enumerate}
 
 \end{document}
