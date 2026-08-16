@@ -10,6 +10,8 @@ import pydicom
 import torch
 from scipy.ndimage import distance_transform_edt
 
+from scipy.ndimage import laplace
+
 from src.preprocessing import n4_bias_correction, normalize_volume, resample_volume_and_mask
 
 
@@ -67,6 +69,35 @@ def costoclavicular_distance(pred_sequence, clav_label=1, k1_label=5):
         dt = distance_transform_edt(~clav_mask)
         distances[i] = dt[k1_mask].min()
     return distances
+
+
+def image_sharpness(image_2d, bbox=None, margin=15):
+    """Variance du Laplacien -- mesure classique de netteté (plus la variance est
+    élevée, plus l'image contient de hautes fréquences nettes ; le flou/mouvement
+    lisse ces hautes fréquences et fait chuter la variance). bbox=(y0,y1,x0,x1) :
+    si fourni, calculée uniquement dans cette région (+marge), pour tester si c'est
+    la qualité locale autour de la structure qui compte, pas la netteté globale de
+    l'image (dominée par le fond/autres tissus)."""
+    if bbox is not None:
+        y0, y1, x0, x1 = bbox
+        h, w = image_2d.shape
+        y0, y1 = max(0, y0 - margin), min(h, y1 + margin)
+        x0, x1 = max(0, x0 - margin), min(w, x1 + margin)
+        image_2d = image_2d[y0:y1, x0:x1]
+    if image_2d.size == 0:
+        return float("nan")
+    return float(laplace(image_2d).var())
+
+
+def structure_bbox(pred_mask, labels):
+    """Boîte englobante (y0,y1,x0,x1) couvrant toutes les classes de `labels`
+    présentes dans pred_mask -- utilisée pour délimiter la région locale de
+    image_sharpness autour de CLAV+K1. None si aucune des classes n'est présente."""
+    mask = np.isin(pred_mask, labels)
+    if not mask.any():
+        return None
+    ys, xs = np.where(mask)
+    return int(ys.min()), int(ys.max()), int(xs.min()), int(xs.max())
 
 
 def temporal_saliency_consistency(cam_sequence):

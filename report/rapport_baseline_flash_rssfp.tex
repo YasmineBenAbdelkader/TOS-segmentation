@@ -1350,28 +1350,67 @@ précédente (\S\ref{sec:phase3-synthese-5}) :
 plutôt vers ``l'incertitude augmente avec la décompression'' (majorité positive,
 69\%) que vers l'hypothèse clinique initiale (compression $\to$ incertitude) --
 mais avec un tel écart-type et au moins 2 contre-exemples significatifs dans chaque
-sens, ce chapitre ne le présente pas comme un résultat acquis. La piste qualité
-d'image (\S Prochaine étape) reste la meilleure façon d'avancer sur cette question,
-plutôt que d'empiler encore des séries sur la même mesure.
+sens, ce chapitre ne le présente pas comme un résultat acquis.
+
+\section{Hypothèse alternative testée : la qualité d'image locale -- ne fonctionne
+pas mieux}
+\label{sec:phase3-qualite-image}
+
+Hypothèse formulée plus haut : peut-être que l'incertitude suit la netteté locale
+de l'image (dégradée en position extrême du bras) plutôt que la distance CLAV--K1
+brute. Testée sur les mêmes 13 séries (\texttt{scripts/analyze\_image\_quality.py})
+: netteté mesurée par variance du Laplacien (mesure standard, insensible au flou vs
+image nette), globale (image entière) et locale (région CLAV+K1 uniquement, +15px
+de marge).
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Corrélation testée & Moyenne $\pm$ écart-type & Séries positives \\
+\midrule
+Entropie $\leftrightarrow$ netteté locale & $-0{,}095 \pm 0{,}383$ & 6/13 \\
+Entropie $\leftrightarrow$ netteté globale & $-0{,}173 \pm 0{,}323$ & 3/13 \\
+Distance CLAV--K1 $\leftrightarrow$ netteté locale & $-0{,}107 \pm 0{,}261$ & 5/13 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Résultat négatif, honnête} : la netteté locale n'explique \textbf{pas mieux}
+l'incertitude que la distance CLAV--K1 -- l'écart-type ($0{,}383$) est même
+\textbf{supérieur} à celui de la corrélation distance/incertitude ($0{,}341$,
+\S\ref{sec:phase3-rssfp}), et le signe reste tout aussi imprévisible d'une série à
+l'autre (certaines corrélations individuelles sont fortes, $\rho=\pm0{,}6$
+à $\pm0{,}7$, mais dans les deux sens selon la série). La netteté globale et la
+distance CLAV--K1 ne sont elles-mêmes pas franchement corrélées
+($-0{,}107\pm0{,}261$) -- pas de confusion évidente entre les deux mesures qui
+expliquerait pourquoi aucune ne prédit l'incertitude de façon fiable.
+
+\textbf{Conclusion sur cette question, pour l'instant} : ni la compression
+anatomique brute, ni la netteté d'image locale ou globale, n'expliquent de façon
+stable l'incertitude du modèle au cours du temps. \textbf{Ne pas continuer à tester
+des hypothèses une par une} sur les mêmes 13 séries -- le facteur déterminant reste
+non identifié, et pourrait nécessiter soit davantage de patients, soit une approche
+différente (ex. corréler l'incertitude à la taille prédite de la structure, à sa
+forme/fragmentation frame par frame, ou à une combinaison de plusieurs facteurs
+plutôt qu'à un seul). À reprendre en Phase 4 avec l'éclairage clinique de
+l'encadrant plutôt que par une recherche exploratoire supplémentaire en Phase 3.
 
 \section{Prochaine étape}
 
-\textbf{État après 13 séries (7 patients, FLASH + RSSFP)} : la cohérence temporelle
-de Seg-Grad-CAM est établie sur les deux séquences ($0{,}931\pm0{,}020$ combiné,
-\S\ref{sec:phase3-rssfp}) ; la corrélation incertitude/compression penche
-maintenant vers un signe majoritaire (9/13 positives) sans atteindre un niveau de
-preuve suffisant (écart-type toujours supérieur à la moyenne).
+\textbf{État après 13 séries (7 patients, FLASH + RSSFP) et 2 hypothèses testées
+pour l'incertitude} : la cohérence temporelle de Seg-Grad-CAM est établie sur les
+deux séquences ($0{,}931\pm0{,}020$ combiné, \S\ref{sec:phase3-rssfp}) -- résultat
+principal de ce chapitre. Ni la distance CLAV--K1 ni la netteté d'image
+(\S\ref{sec:phase3-qualite-image}) n'expliquent l'incertitude de façon stable --
+question laissée ouverte pour la Phase 4, pas résolue en Phase 3.
 
 \begin{enumerate}[nosep]
-    \item \textbf{Cohérence temporelle} : résultat désormais établi sur les deux
-        séquences -- prêt à être présenté comme une conclusion du chapitre, pas
-        seulement une observation préliminaire.
-    \item \textbf{Corrélation incertitude/compression} : ne pas continuer à
-        empiler des séries dans l'espoir de trancher le signe -- tester plutôt si
-        l'incertitude suit la \emph{qualité d'image} (bras en position extrême,
-        désaturation) plutôt que la distance CLAV--K1 brute. Mesure de qualité
-        d'image par frame (ex. netteté locale, variance du Laplacien) pas encore
-        implémentée -- prochaine tâche de code à faire.
+    \item \textbf{Cohérence temporelle} : résultat établi sur les deux séquences --
+        prêt à être présenté comme une conclusion du chapitre.
+    \item \textbf{Incertitude au cours du temps} : deux hypothèses testées et
+        écartées (compression, netteté d'image) -- ne pas en tester d'autres au
+        hasard en Phase 3 ; à reprendre en Phase 4 avec l'éclairage clinique de
+        l'encadrant (\S\ref{sec:phase3-qualite-image}).
     \item Vérifier avec le service d'imagerie l'entrelacement D/G observé sur les
         \texttt{InstanceNumber} RSSFP (\S\ref{sec:phase3-rssfp}) -- comprendre le
         protocole d'acquisition avant d'aller plus loin sur RSSFP spécifiquement.
