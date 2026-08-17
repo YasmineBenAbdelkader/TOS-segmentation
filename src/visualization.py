@@ -292,6 +292,60 @@ def plot_phase3_dashboard(instance_numbers, distances, entropies, consistency, o
     plt.close(fig)
 
 
+def plot_clinical_case(case_data, title, out_path, target_class=None):
+    """Carte de cas clinique -- 5 panneaux : image, vérité terrain, prédiction,
+    Seg-Grad-CAM (structure ciblée), incertitude MC Dropout. Format pensé pour une
+    lecture rapide par un clinicien, pas pour l'analyse quantitative détaillée déjà
+    faite ailleurs dans le rapport technique. Une couleur par structure (même
+    convention que les figures qualitatives Phase 1) plutôt qu'un contour unique
+    fusionnant les 6 structures -- évite de confondre visuellement "une autre
+    structure est prédite ici" avec "la structure ciblée chevauche la vérité
+    terrain". La structure ciblée (target_class) est tracée en trait plus épais
+    pour rester repérable au premier coup d'œil parmi les 6."""
+    img = case_data["image"]
+    cmap = plt.get_cmap("tab10")
+    fig, axes = plt.subplots(1, 5, figsize=(20, 4.2))
+
+    axes[0].imshow(img, cmap="gray")
+    axes[0].set_title("Image")
+
+    axes[1].imshow(img, cmap="gray")
+    axes[2].imshow(img, cmap="gray")
+    for name, val in CANON.items():
+        color = cmap((val - 1) / 10)
+        lw = 2.4 if val == target_class else 1.0
+        m_gt = case_data["label"] == val
+        m_pred = case_data["pred"] == val
+        if m_gt.any():
+            axes[1].contour(m_gt, levels=[0.5], colors=[color], linewidths=lw)
+        if m_pred.any():
+            axes[2].contour(m_pred, levels=[0.5], colors=[color], linewidths=lw)
+    axes[1].set_title(f"Vérité terrain\n({case_data['structure_name']} en trait épais)")
+    axes[2].set_title(f"Prédiction\n({case_data['structure_name']} en trait épais)")
+
+    axes[3].imshow(img, cmap="gray")
+    if case_data["cam"] is not None:
+        axes[3].imshow(case_data["cam"], cmap="jet", alpha=0.5, vmin=0, vmax=1)
+    else:
+        axes[3].text(0.5, 0.5, "structure non\nprédite ici\n(rien à expliquer)",
+                      ha="center", va="center", transform=axes[3].transAxes,
+                      fontsize=9, color="white", bbox=dict(facecolor="black", alpha=0.6))
+    axes[3].set_title(f"Seg-Grad-CAM\n({case_data['structure_name']})")
+
+    axes[4].imshow(img, cmap="gray")
+    im = axes[4].imshow(case_data["entropy"], cmap="inferno", alpha=0.6)
+    axes[4].set_title("Incertitude\n(MC Dropout)")
+    fig.colorbar(im, ax=axes[4], fraction=0.046, pad=0.04)
+
+    for ax in axes:
+        ax.axis("off")
+    fig.suptitle(f"{title}  --  Dice {case_data['structure_name']} = {case_data['dice_target']:.3f}",
+                 fontsize=12)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+
+
 def generate_all_figures(history, final_metrics, model, val_dataset, device, out_dir, tag):
     """tag : préfixe complet des fichiers générés (ex. 'baseline_FLASH_fold0'), pas
     seulement un numéro de fold — permet de distinguer les runs par séquence/modèle
