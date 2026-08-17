@@ -1461,30 +1461,90 @@ forme/fragmentation frame par frame, ou à une combinaison de plusieurs facteurs
 plutôt qu'à un seul). À reprendre en Phase 4 avec l'éclairage clinique de
 l'encadrant plutôt que par une recherche exploratoire supplémentaire en Phase 3.
 
+\section{Troisième et dernière sous-analyse prévue : distance à la frame annotée
+la plus proche}
+\label{sec:phase3-distance-annotation}
+
+Contrairement aux deux hypothèses précédentes (compression, netteté d'image), cette
+sous-analyse était prévue \textbf{dès le plan initial} (chapitre~\ref{chap:contexte})
+mais bloquée tant que seules les 20 frames annotées (toutes à distance nulle d'une
+annotation) étaient disponibles -- désormais faisable avec la séquence complète.
+
+\textbf{Étape technique nécessaire} : les 20 frames annotées, exportées séparément
+dans \texttt{DATA/}, ont été renumérotées 1--20 à l'export -- leur position
+d'origine dans la séquence de $\approx$300 images (\texttt{big\_dataset/}) est donc
+inconnue a priori. Retrouvée par comparaison exacte des pixels (vérifié
+empiriquement : \texttt{DATA/.../IM\_001.dcm} correspond pixel pour pixel à
+\texttt{big\_dataset/.../IM\_008.dcm} sur le cas testé, pas une coïncidence de
+numérotation) -- \texttt{src/phase3.py}, \texttt{match\_annotated\_frames}.
+
+\textbf{Limite de données découverte en cours de route} : la correspondance exacte
+n'a été trouvée que pour \textbf{7 des 13 séries} (les 5 séries FLASH et RSSFP
+0229 D/G) -- \textbf{6 séries RSSFP (0223, 0226, 0227, D et G)} n'ont aucune frame
+strictement identique entre les deux exports. Vérifié que ce n'est pas un problème
+de chemin (les deux dossiers existent bien, avec des conventions de nommage
+espace/underscore différentes selon le patient -- déjà rencontré et corrigé) : la
+meilleure correspondance trouvée pour ces séries a une corrélation de pixels de
+$\approx$0,95, pas 1,0 -- une frame \emph{voisine} mais pas identique. Ces 3
+patients ont probablement des exports \texttt{DATA/} et \texttt{big\_dataset/}
+issus d'acquisitions ou de retraitements légèrement différents pour RSSFP
+spécifiquement -- signalé comme limite honnête, pas ignoré silencieusement.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Série & Frames retrouvées & $\rho$ (entropie / distance annotation) \\
+\midrule
+FLASH 0230 D & 20/20 & $+0{,}0237$ (n.s.) \\
+FLASH 0230 G & 20/20 & $+0{,}0501$ (n.s.) \\
+FLASH 0231 D & 20/20 & $+0{,}5759^{**}$ \\
+FLASH 0240 D & 20/20 & $+0{,}0044$ (n.s.) \\
+FLASH 0228 D & 20/20 & $+0{,}1172^{*}$ \\
+RSSFP 0229 D & 20/20 & $-0{,}4247^{**}$ \\
+RSSFP 0229 G & 20/20 & $-0{,}1541^{**}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+{\footnotesize n.s. = non significatif ; $^{*}$ $p<0{,}05$ ; $^{**}$ $p<0{,}01$.}
+
+Sur les 7 séries mesurables : $\rho$ moyen $=0{,}028$, écart-type $=0{,}302$ --
+\textbf{même signature que les deux hypothèses précédentes} (moyenne proche de 0,
+écart-type supérieur à la moyenne, signe non prévisible : 5 positives, 2
+négatives). \textbf{Cette troisième hypothèse, elle aussi prévue depuis le début du
+plan, n'explique pas mieux l'incertitude que la compression ou la netteté
+d'image.}
+
+\textbf{Bilan des 3 hypothèses testées pour l'incertitude au cours du temps} :
+compression anatomique (\S\ref{sec:phase3-synthese-5}), netteté d'image
+(\S\ref{sec:phase3-qualite-image}), distance à l'annotation la plus proche
+(ci-dessus) -- \textbf{aucune ne montre un effet stable inter-série}. Ce n'est plus
+un résultat isolé mais un motif répété trois fois avec la même signature
+statistique, ce qui renforce la décision de ne pas en tester une 4e sans passer
+d'abord par la Phase 4.
+
 \section{Prochaine étape}
 
-\textbf{État après 13 séries (7 patients, FLASH + RSSFP) et 2 hypothèses testées
+\textbf{État après 13 séries (7 patients, FLASH + RSSFP) et 3 hypothèses testées
 pour l'incertitude} : la cohérence temporelle de Seg-Grad-CAM est établie sur les
 deux séquences ($0{,}931\pm0{,}020$ combiné, \S\ref{sec:phase3-rssfp}) -- résultat
-principal de ce chapitre. Ni la distance CLAV--K1 ni la netteté d'image
-(\S\ref{sec:phase3-qualite-image}) n'expliquent l'incertitude de façon stable --
-question laissée ouverte pour la Phase 4, pas résolue en Phase 3.
+principal de ce chapitre. Ni la distance CLAV--K1, ni la netteté d'image, ni la
+distance à l'annotation la plus proche (\S\ref{sec:phase3-distance-annotation})
+n'expliquent l'incertitude de façon stable -- question laissée ouverte pour la
+Phase 4, pas résolue en Phase 3.
 
 \begin{enumerate}[nosep]
     \item \textbf{Cohérence temporelle} : résultat établi sur les deux séquences --
         prêt à être présenté comme une conclusion du chapitre.
-    \item \textbf{Incertitude au cours du temps} : deux hypothèses testées et
-        écartées (compression, netteté d'image) -- ne pas en tester d'autres au
-        hasard en Phase 3 ; à reprendre en Phase 4 avec l'éclairage clinique de
-        l'encadrant (\S\ref{sec:phase3-qualite-image}).
+    \item \textbf{Incertitude au cours du temps} : les 3 hypothèses prévues ou
+        envisagées ont été testées et écartées (compression, netteté d'image,
+        distance à l'annotation) -- ne pas en tester d'autres en Phase 3 ; à
+        reprendre en Phase 4 avec l'éclairage clinique de l'encadrant.
     \item Vérifier avec le service d'imagerie l'entrelacement D/G observé sur les
-        \texttt{InstanceNumber} RSSFP (\S\ref{sec:phase3-rssfp}) -- comprendre le
-        protocole d'acquisition avant d'aller plus loin sur RSSFP spécifiquement.
-    \item La sous-analyse ``distance à la frame annotée la plus proche''
-        (\S\ref{sec:phase3-limite}) reste à faire : nécessite d'abord de retrouver,
-        parmi les 300 frames, lesquelles correspondent aux 20 frames annotées
-        utilisées à l'entraînement (recalage géométrique, même logique que
-        \texttt{build\_frame\_to\_k} en Phase 0) -- pas encore fait.
+        \texttt{InstanceNumber} RSSFP (\S\ref{sec:phase3-rssfp}), et l'écart
+        d'export découvert en \S\ref{sec:phase3-distance-annotation} (frames
+        \texttt{DATA/} et \texttt{big\_dataset/} non identiques pour 3 patients
+        RSSFP) -- comprendre le protocole d'acquisition/export avant d'aller plus
+        loin sur RSSFP spécifiquement.
 \end{enumerate}
 
 \end{document}

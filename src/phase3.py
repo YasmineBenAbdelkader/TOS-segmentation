@@ -71,6 +71,39 @@ def costoclavicular_distance(pred_sequence, clav_label=1, k1_label=5):
     return distances
 
 
+def match_annotated_frames(annotated_dir, full_dir):
+    """Retrouve, pour chaque frame annotée (DATA/, 20 frames renumérotées 1..20 à
+    l'export), son InstanceNumber réel dans la séquence complète (big_dataset/,
+    ~300 frames) -- par comparaison exacte des pixels, les deux exports contenant
+    les mêmes images mais renumérotées indépendamment (vérifié empiriquement :
+    IM_001.dcm annoté = IM_008.dcm de la séquence complète sur un cas testé, pas
+    une coïncidence de numérotation). Renvoie (matched, unmatched) : matched = liste
+    triée des InstanceNumber (espace des ~300) correspondant à une frame annotée ;
+    unmatched = InstanceNumber annotés (espace 1..20) sans correspondance pixel
+    exacte trouvée (à ne pas silencieusement ignorer)."""
+    full_frames = {}
+    for f in sorted(Path(full_dir).glob("IM_*.dcm")):
+        d = pydicom.dcmread(f)
+        full_frames[d.pixel_array.tobytes()] = int(d.InstanceNumber)
+
+    matched, unmatched = [], []
+    for f in sorted(Path(annotated_dir).glob("IM_*.dcm")):
+        d = pydicom.dcmread(f)
+        key = d.pixel_array.tobytes()
+        if key in full_frames:
+            matched.append(full_frames[key])
+        else:
+            unmatched.append(int(d.InstanceNumber))
+    return sorted(matched), unmatched
+
+
+def distance_to_nearest_annotated(instance_numbers, annotated_instance_numbers):
+    """Distance (en nombre de frames) de chaque frame de la séquence complète à la
+    frame annotée la plus proche."""
+    ann = np.array(sorted(annotated_instance_numbers))
+    return [int(np.min(np.abs(ann - n))) for n in instance_numbers]
+
+
 def image_sharpness(image_2d, bbox=None, margin=15):
     """Variance du Laplacien -- mesure classique de netteté (plus la variance est
     élevée, plus l'image contient de hautes fréquences nettes ; le flou/mouvement
